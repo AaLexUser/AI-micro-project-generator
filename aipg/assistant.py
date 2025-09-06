@@ -15,27 +15,36 @@ logger = logging.getLogger(__name__)
 
 @contextmanager
 def timeout(seconds: int, error_message: Optional[str] = None):
-    if sys.platform == "win32":
-        # Windows implementation using threading
-        timer = threading.Timer(
-            seconds, lambda: (_ for _ in ()).throw(TimeoutError(error_message))
-        )
-        timer.start()
-        try:
-            yield
-        finally:
-            timer.cancel()
-    else:
-        # Unix impementation using SIGALRM
-        def handle_timeout(signum, frame):
-            raise TimeoutError(error_message)
+    """Best-effort timeout context.
 
-        signal.signal(signal.SIGALRM, handle_timeout)
-        signal.alarm(seconds)
-        try:
-            yield
-        finally:
-            signal.alarm(0)
+    Uses SIGALRM only on Unix main thread; otherwise falls back to a no-op
+    (Streamlit and other runtimes often execute in worker threads where
+    signals are not supported).
+    """
+    use_signal = (
+        sys.platform != "win32"
+        and threading.current_thread() is threading.main_thread()
+    )
+
+    if not use_signal:
+        logger.debug(
+            "Timeout fallback: running without SIGALRM (seconds=%s, reason=%s)",
+            seconds,
+            "non-main-thread or unsupported platform",
+        )
+        yield
+        return
+
+    # Unix implementation using SIGALRM in main thread
+    def handle_timeout(signum, frame):
+        raise TimeoutError(error_message)
+
+    signal.signal(signal.SIGALRM, handle_timeout)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
 
 
 class Assistant:
