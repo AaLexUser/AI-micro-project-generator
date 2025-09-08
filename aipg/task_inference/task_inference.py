@@ -4,10 +4,10 @@ from typing import Any, Dict, List, Optional
 from aipg.exceptions import OutputParserException
 from aipg.llm import LLMClient
 from aipg.prompting.prompt_generator import (
-    MicroTaskGenerationPromptGenerator,
+    ProjectGenerationPromptGenerator,
     PromptGenerator,
 )
-from aipg.task import Task
+from aipg.state import Project, AgentState
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class TaskInference:
         self.fallback_value: Optional[str] = None
         self.ignored_value: List[str] = []
 
-    def initialize_task(self, task: Task):
+    def initialize_task(self, state: AgentState):
         self.prompt_genetator: Optional[PromptGenerator] = None
         self.valid_values = None
 
@@ -41,17 +41,17 @@ class TaskInference:
 
         logger.info(f"{bold_start}{prefix}{bold_end}: {value_str}")
 
-    def transform(self, task: Task) -> Task:
-        self.initialize_task(task)
+    def transform(self, state: AgentState) -> AgentState:
+        self.initialize_task(state)
         parser_output = self._chat_and_parse_prompt_output()
         for k, v in parser_output.items():
             if v in self.ignored_value:
                 v = None
             self.log_value(k, v)
-            setattr(task, k, self.post_process(task=task, value=v))
-        return task
+            setattr(state, k, self.post_process(state=state, value=v))
+        return state
 
-    def post_process(self, task, value):
+    def post_process(self, state, value):
         return value
 
     def _chat_and_parse_prompt_output(self) -> Dict[str, Optional[str]]:
@@ -74,9 +74,19 @@ class TaskInference:
             raise e
 
 
-class MicroProjectGenerationInference(TaskInference):
-    def initialize_task(self, task: Task):
-        super().initialize_task(task)
-        self.prompt_genetator = MicroTaskGenerationPromptGenerator(
-            issue_description=task.issue.description
-        )
+class ProjectGenerationInference(TaskInference):
+    def initialize_task(self, state: AgentState):
+        super().initialize_task(state)
+        
+    def transform(self, state: AgentState) -> AgentState:
+        self.initialize_task(state)
+        projects = []
+        for topic in state.topics:
+            self.prompt_genetator = ProjectGenerationPromptGenerator(
+                topic_description=topic
+            )
+            chat_prompt = self.prompt_genetator.generate_chat_prompt()
+            response = self.llm.query(chat_prompt)
+            projects.append(Project(topic=topic, description=response))
+        state.projects = projects
+        return state

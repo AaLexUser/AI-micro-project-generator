@@ -1,3 +1,3 @@
-from .task_inference import MicroProjectGenerationInference, TaskInference
+from .task_inference import ProjectGenerationInference, TaskInference
 
-__all__ = ["MicroProjectGenerationInference", "TaskInference"]
+__all__ = ["ProjectGenerationInference", "TaskInference"]

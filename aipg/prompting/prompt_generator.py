@@ -7,21 +7,21 @@ from aipg.prompting.utils import parse_and_check_json
 class PromptGenerator(ABC):
     fields: list[str] = []
 
-    def __init__(self, issue_description: str = ""):
-        self.issue_description = issue_description
+    def __init__(self, topic_description: str = ""):
+        self.topic_description = topic_description
         self.parser = self.create_parser()
 
     @property
     def system_prompt(self):
-        return "You are an expert teacher who helps students learn from their mistakes."
-
-    @property
-    def issue_description_prompt(self):
-        return f"# Mistake Description\n{self.issue_description}"
+        return ""
 
     @abstractmethod
     def generate_prompt(self) -> str:
         pass
+    
+    def load_from_file(self, file_path: str) -> str:
+        with open(file_path, "r") as file:
+            return file.read()
 
     def get_field_parsing_prompt(self) -> str:
         return (
@@ -46,19 +46,14 @@ class PromptGenerator(ABC):
         return partial(parse_and_check_json, expected_keys=self.fields)
 
 
-class MicroTaskGenerationPromptGenerator(PromptGenerator):
-    fields = ["task_description", "task_goal", "expert_solution"]
+class ProjectGenerationPromptGenerator(PromptGenerator):
+    
+    def __init__(self, topic_description: str = ""):
+        self.topic_description = topic_description
+
+    @property
+    def system_prompt(self):
+        return self.load_from_file("aipg/prompting/project_gen.md")
 
     def generate_prompt(self) -> str:
-        return (
-            f"{self.issue_description_prompt}\n\n"
-            "Based on the above information, create a small, "
-            "focused learning tasks that specifically address misunderstanding. "
-            "Micro-task should target one specific error or misconception. "
-            "The task should be concise and clear, and should be easy to understand for a student."
-            "Determine:\n"
-            "task_description: detailed description of the task without hints.\n\n"
-            "task_goal: what is user must achieve to complete the task.\n\n"
-            "expert_solution: a detailed expert solution to the task.\n\n"
-            f"{self.get_field_parsing_prompt()}"
-        )
+        return f"""[Тема]: {self.topic_description}"""

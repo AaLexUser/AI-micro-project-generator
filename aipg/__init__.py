@@ -10,7 +10,7 @@ from rich import print as rprint
 from aipg.assistant import Assistant
 from aipg.configs.app_config import AppConfig
 from aipg.configs.loader import load_config
-from aipg.task import Task
+from aipg.state import AgentState
 
 
 @dataclass
@@ -42,7 +42,7 @@ def time_block(description: str, timer: TimingContext):
 
 
 def run_assistant(
-    issue: Annotated[str, typer.Argument(help="Issue description")],
+    topic: Annotated[str, typer.Argument(help="Topic description")],
     presets: Annotated[
         Optional[str],
         typer.Option("--presets", "-p", help="Presets"),
@@ -78,9 +78,9 @@ def run_assistant(
     with time_block("initializing components", timer):
         rprint("🤖 [bold red] Welcome to Cherry AI Project Generator [/bold red]")
         assistant = Assistant(config)
-        task = Task(issue_description=issue)
-        task = assistant.generate_project(task)
-        rprint(task)
+        state = AgentState(topics=[topic])
+        state = assistant.execute(state)
+        rprint(state)
 
 
 def main():

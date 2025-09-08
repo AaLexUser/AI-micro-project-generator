@@ -7,8 +7,8 @@ from typing import List, Optional, Type
 
 from aipg.configs.app_config import AppConfig
 from aipg.llm import LLMClient
-from aipg.task import Task
-from aipg.task_inference import MicroProjectGenerationInference, TaskInference
+from aipg.state import AgentState
+from aipg.task_inference import ProjectGenerationInference, TaskInference
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class Assistant:
         raise Exception(str(exception), stage)
 
     def _run_task_inference(
-        self, task_inferences: List[Type[TaskInference]], task: Task
+        self, task_inferences: List[Type[TaskInference]], state: AgentState
     ):
         for inference_class in task_inferences:
             inference = inference_class(llm=self.llm)
@@ -56,17 +56,17 @@ class Assistant:
                     seconds=self.config.task_timeout,
                     error_message=f"Task inference preprocessing time out: {inference_class}",
                 ):
-                    task = inference.transform(task)
+                    state = inference.transform(state)
             except Exception as e:
                 self.handle_exception(
                     f"Task inference preprocessing: {inference_class}", e
                 )
 
-    def generate_project(self, task: Task) -> Task:
+    def execute(self, state: AgentState) -> AgentState:
         task_inferences: List[Type[TaskInference]] = [
-            MicroProjectGenerationInference,
+            ProjectGenerationInference,
         ]
 
-        self._run_task_inference(task_inferences, task)
+        self._run_task_inference(task_inferences, state)
 
-        return task
+        return state
