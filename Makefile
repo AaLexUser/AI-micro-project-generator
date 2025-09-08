@@ -42,3 +42,29 @@ format: ## Format code and organize imports with ruff
 .PHONY: quality
 quality: format lint-fix ## Run all quality checks
 	@echo "$(GREEN)All quality checks completed!$(NC)"
+
+# =============================================================================
+# SERVER
+# =============================================================================
+
+.PHONY: serve
+serve: ## Run FastAPI server with uvicorn
+	@echo "$(BLUE)Starting FastAPI server on http://127.0.0.1:8000 ...$(NC)"
+	${UV} run uvicorn aipg.server:create_app --factory --host 127.0.0.1 --port 8000 --reload
+
+# =============================================================================
+# FRONTEND
+# =============================================================================
+
+.PHONY: frontend-dev
+frontend-dev: ## Run Next.js frontend (requires node)
+	@echo "$(BLUE)Starting Next.js on http://127.0.0.1:3000 ...$(NC)"
+	cd frontend && pnpm dev || npm run dev || yarn dev
+
+.PHONY: frontend-build
+frontend-build: ## Build Next.js frontend
+	cd frontend && pnpm build || npm run build || yarn build
+
+.PHONY: frontend-start
+frontend-start: ## Start Next.js production server
+	cd frontend && pnpm start || npm run start || yarn start

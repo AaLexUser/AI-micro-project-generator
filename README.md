@@ -48,6 +48,63 @@ uv run aipg --config-path custom.yaml "My function returns None instead of expec
 uv run aipg -o llm.model_name="gpt-4" "Database connection fails with timeout"
 ```
 
+### API Server
+
+Run the FastAPI server locally:
+
+```bash
+make serve
+```
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8000/healthz
+```
+
+Generate via API:
+
+```bash
+curl -X POST http://127.0.0.1:8000/generate \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "issue": "I keep mixing up Python list comprehensions with map/filter",
+        "presets": null,
+        "config_path": null,
+        "config_overrides": ["llm.max_completion_tokens=256"]
+      }'
+```
+
+### Frontend (Next.js)
+
+Run the modern Next.js frontend:
+
+```bash
+# In one terminal: backend
+make serve
+
+# In another terminal: frontend
+cd frontend
+# choose one package manager
+pnpm install   # or npm install, or yarn
+pnpm dev       # or npm run dev, or yarn dev
+```
+
+Set the backend URL for the frontend (optional, defaults to http://127.0.0.1:8000):
+
+```bash
+cd frontend
+echo "BACKEND_URL=http://127.0.0.1:8000" > .env.local
+```
+
+Open the app at `http://127.0.0.1:3000`.
+
+Flow:
+- Add code and review comments in the Chat page
+- Select an issue from recent assistant messages
+- Click Generate Project to call the backend `/generate`
+- View projects at `Projects`, open a project to read Description and Goal, paste your solution, then reveal the Expert Solution
+
 ## ⚙️ Configuration
 
 The tool supports extensive configuration through YAML files and command-line overrides.

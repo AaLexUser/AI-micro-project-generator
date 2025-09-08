@@ -15,8 +15,13 @@ logger = logging.getLogger(__name__)
 
 @contextmanager
 def timeout(seconds: int, error_message: Optional[str] = None):
-    if sys.platform == "win32":
-        # Windows implementation using threading
+    # Use signal-based timeout only on Unix main thread. Otherwise, fall back to threading.Timer
+    use_threading_timer = (
+        sys.platform == "win32"
+        or threading.current_thread() is not threading.main_thread()
+    )
+
+    if use_threading_timer:
         timer = threading.Timer(
             seconds, lambda: (_ for _ in ()).throw(TimeoutError(error_message))
         )
@@ -26,7 +31,7 @@ def timeout(seconds: int, error_message: Optional[str] = None):
         finally:
             timer.cancel()
     else:
-        # Unix impementation using SIGALRM
+        # Unix implementation using SIGALRM on main thread only
         def handle_timeout(signum, frame):
             raise TimeoutError(error_message)
 

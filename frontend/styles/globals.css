@@ -1,0 +1,211 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 222.2 84% 4.9%;
+
+  --radius: 0.75rem;
+
+  --primary: 222 89% 60%;
+  --primary-foreground: 210 40% 98%;
+
+  --secondary: 210 36% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+
+  --accent: 215 30% 95%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+}
+
+/* Dark theme tokens */
+.dark {
+  --background: 222.2 47% 5.5%;
+  --foreground: 210 40% 96%;
+
+  --muted: 217.2 25% 14.5%;
+  --muted-foreground: 215 20.2% 72%;
+
+  --popover: 222.2 47% 6.5%;
+  --popover-foreground: 210 40% 96%;
+
+  --card: 222.2 47% 6.5%;
+  --card-foreground: 210 40% 96%;
+
+  --border: 217.2 25% 15%;
+  --input: 217.2 25% 15%;
+  --ring: 224 98% 62%;
+
+  --primary: 224 96% 62%;
+  --primary-foreground: 210 40% 98%;
+
+  --secondary: 225 24% 12.5%;
+  --secondary-foreground: 210 40% 96%;
+
+  --accent: 226 28% 14%;
+  --accent-foreground: 210 40% 96%;
+
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+}
+
+html, body {
+  height: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "ss01" on, "ss02" on, "liga" on, "calt" on;
+}
+
+/*
+  Premium UI helpers
+  These utilities provide layered gradients, subtle grids, glass surfaces,
+  and animated shines used across the landing page.
+*/
+
+/* Grid backdrop (light) */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+/* Large radial spotlight gradient */
+.radial-spotlight {
+  background: radial-gradient(600px circle at 20% -10%, rgba(59, 130, 246, 0.15), transparent 60%),
+              radial-gradient(600px circle at 80% 10%, rgba(99, 102, 241, 0.15), transparent 60%),
+              radial-gradient(800px circle at 50% 120%, rgba(56, 189, 248, 0.18), transparent 60%);
+}
+
+/* Soft animated aurora */
+@keyframes auroraMove {
+  0% { transform: translate3d(-10%, -10%, 0) scale(1); }
+  50% { transform: translate3d(10%, 5%, 0) scale(1.05); }
+  100% { transform: translate3d(-10%, -10%, 0) scale(1); }
+}
+.aurora {
+  position: absolute;
+  inset: -20% -10% auto -10%;
+  height: 60vh;
+  background: radial-gradient(40% 60% at 20% 30%, rgba(59,130,246,.25), transparent 60%),
+              radial-gradient(35% 55% at 60% 20%, rgba(99,102,241,.25), transparent 60%),
+              radial-gradient(45% 65% at 80% 60%, rgba(56,189,248,.25), transparent 60%);
+  filter: blur(42px) saturate(130%);
+  animation: auroraMove 18s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Subtle noise */
+.noise::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23n)" opacity="0.025"/></svg>');
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* Dotted grid overlay */
+.dot-grid {
+  background-image: radial-gradient(rgba(148,163,184,0.35) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Glass panel */
+.glass {
+  background: hsla(var(--card), 0.6);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid hsla(var(--border), 0.5);
+  box-shadow: 0 10px 32px rgba(2, 8, 23, 0.28), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+
+/* Gradient text */
+.gradient-text {
+  background-image: linear-gradient(90deg, hsl(var(--primary)) 0%, #60a5fa 50%, #22d3ee 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Shimmer effect for buttons/ctas */
+@keyframes shine {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+
+.shine {
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.35) 20%,
+    rgba(255, 255, 255, 0) 40%
+  );
+  background-size: 200% 100%;
+  animation: shine 2.5s linear infinite;
+}
+
+/* Premium ring utility for focus and cards */
+.ring-gradient {
+  position: relative;
+}
+.ring-gradient::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(120deg, rgba(59,130,246,.6), rgba(99,102,241,.4), rgba(56,189,248,.5));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Luxury typography scale */
+.display-1 { font-size: clamp(2.5rem, 6vw, 5rem); line-height: 1.05; letter-spacing: -0.02em; }
+.display-2 { font-size: clamp(1.75rem, 3.5vw, 2.5rem); line-height: 1.15; letter-spacing: -0.015em; }
+
+/* Trust bar logos shimmer */
+.logo-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.logo-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,.08) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: logoSheen 4s ease-in-out infinite;
+}
+@keyframes logoSheen {
+  0% { transform: translateX(-100%); }
+  60% { transform: translateX(100%); }
+  100% { transform: translateX(100%); }
+}
+
+
