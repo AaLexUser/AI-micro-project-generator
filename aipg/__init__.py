@@ -7,11 +7,6 @@ from typing import Annotated, List, Optional
 import typer
 from rich import print as rprint
 
-from aipg.assistant import Assistant
-from aipg.configs.app_config import AppConfig
-from aipg.configs.loader import load_config
-from aipg.task import Task
-
 
 @dataclass
 class TimingContext:
@@ -67,6 +62,10 @@ def run_assistant(
     logging.info("Starting Cherry AI Project Generator")
     # Load config with all overrides
     try:
+        # Local imports to avoid heavy dependencies at package import time
+        from aipg.configs.app_config import AppConfig
+        from aipg.configs.loader import load_config
+
         config = load_config(presets, config_path, config_overrides, AppConfig)
         logging.info("Successfully loaded config")
     except Exception as e:
@@ -77,6 +76,9 @@ def run_assistant(
 
     with time_block("initializing components", timer):
         rprint("🤖 [bold red] Welcome to Cherry AI Project Generator [/bold red]")
+        from aipg.assistant import Assistant
+        from aipg.task import Task
+
         assistant = Assistant(config)
         task = Task(issue_description=issue)
         task = assistant.generate_project(task)
