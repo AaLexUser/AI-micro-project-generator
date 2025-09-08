@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from functools import partial
+from pathlib import Path
 
+from aipg.constants import PACKAGE_PATH
 from aipg.prompting.utils import parse_and_check_json
 
 
@@ -19,9 +21,9 @@ class PromptGenerator(ABC):
     def generate_prompt(self) -> str:
         pass
     
-    def load_from_file(self, file_path: str) -> str:
-        with open(file_path, "r") as file:
-            return file.read()
+    def load_from_file(self, file_path: str | Path) -> str:
+        file_path = Path(file_path)
+        return file_path.read_text()
 
     def get_field_parsing_prompt(self) -> str:
         return (
@@ -49,11 +51,11 @@ class PromptGenerator(ABC):
 class ProjectGenerationPromptGenerator(PromptGenerator):
     
     def __init__(self, topic_description: str = ""):
-        self.topic_description = topic_description
+        super().__init__(topic_description)
 
     @property
     def system_prompt(self):
-        return self.load_from_file("aipg/prompting/project_gen.md")
+        return self.load_from_file(Path(PACKAGE_PATH) / "prompting" / "project_gen.md")
 
     def generate_prompt(self) -> str:
         return f"""[Тема]: {self.topic_description}"""

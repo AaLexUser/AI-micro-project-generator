@@ -1,7 +1,6 @@
 import logging
-import re
 from pathlib import Path
-from typing import Any, List, Optional, Type, TypeVar, cast
+from typing import List, Optional, Type, TypeVar, cast
 
 from dotenv import load_dotenv
 from omegaconf import DictConfig, ListConfig, OmegaConf
@@ -9,6 +8,7 @@ from pydantic import BaseModel
 
 from aipg.configs.app_config import AppConfig
 from aipg.constants import PACKAGE_NAME, PACKAGE_PATH
+from aipg.configs.overrides import apply_overrides
 
 
 def _get_default_config_path(
@@ -42,80 +42,6 @@ def _get_default_config_path(
         if not config_path.exists():
             raise ValueError(f"Config file not found: {config_path}")
         return config_path
-
-
-def parse_override(override: str) -> tuple:
-    """
-    Parse a single override string in the format 'key=value' or 'key.nested=value'.
-
-    Args:
-        override: String in format "key=value" or "key.nested=value".
-
-    Returns:
-        Tuple of (key, value).
-
-    Raises:
-        ValueError: If override string is not in correct format.
-    """
-    if "=" not in override:
-        raise ValueError(
-            f"Invalid override format: {override}. Must be in format 'key=value' or 'key.nested=value'"
-        )
-    key, value = override.split("=", 1)
-    return key, value
-
-
-def apply_overrides(
-    config: DictConfig | ListConfig, overrides: List[str]
-) -> DictConfig | ListConfig:
-    """
-    Apply command-line style overrides to a configuration dictionary.
-
-    Args:
-        config: Base configuration as a dictionary.
-        overrides: List of overrides in format ["key1=value1", "key2.nested=value2"].
-
-    Returns:
-        Updated configuration dictionary with overrides applied.
-    """
-    if not overrides:
-        return config
-
-    # Convert overrides to nested dict
-    override_conf: dict[str, Any] = {}
-    # Split by comma but preserve commas inside square brackets
-    overrides = re.split(pattern=r",(?![^\[]*\])", string=",".join(overrides))
-
-    for override in overrides:
-        override = override.strip()
-        key, value = parse_override(override)
-
-        # Handle list values enclosed in square brackets
-        if value.startswith("[") and value.endswith("]"):
-            # Extract items between brackets and split by comma
-            items = value[1:-1].split(",")
-            # Clean up each item and convert to list
-            value = [item.strip() for item in items if item.strip()]
-        else:
-            # Try to convert value to appropriate type for non-list values
-            try:
-                value = eval(value)
-            except Exception:
-                # Keep as string if eval fails
-                pass
-
-        # Handle nested keys
-        current = override_conf
-        key_parts = key.split(".")
-        for part in key_parts[:-1]:
-            current = current.setdefault(part, {})
-        current[key_parts[-1]] = value
-
-    # Convert override dict to OmegaConf and merge
-    override_conf = OmegaConf.create(override_conf)  # type: ignore
-    return OmegaConf.merge(config, override_conf)
-
-
 def _path_resolver(path: str | Path):
     """
     Resolve a config path, supporting special 'caafe:xxx' syntax for package configs.
@@ -126,12 +52,13 @@ def _path_resolver(path: str | Path):
     Returns:
         Path object to the resolved config file.
     """
-    match = re.search(f"^{PACKAGE_NAME}\\s*:\\s*.*", str(path).strip())
-    if match:
-        path = re.sub(f"^{PACKAGE_NAME}\\s*:\\s*", "", match.group())
-        logging.info(f"Config path resolved: {path}")
-        return _get_default_config_path(path)
-    return Path(path)
+    raw = str(path).strip()
+    prefix = f"{PACKAGE_NAME}:"
+    if raw.startswith(prefix):
+        alias = raw.split(":", 1)[1].strip()
+        logging.info(f"Config path resolved: {alias}")
+        return _get_default_config_path(alias)
+    return Path(raw)
 
 
 def _load_config_file(

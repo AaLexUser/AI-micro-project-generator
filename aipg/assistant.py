@@ -16,10 +16,22 @@ logger = logging.getLogger(__name__)
 @contextmanager
 def timeout(seconds: int, error_message: Optional[str] = None):
     if sys.platform == "win32":
-        # Windows implementation using threading
-        timer = threading.Timer(
-            seconds, lambda: (_ for _ in ()).throw(TimeoutError(error_message))
-        )
+        # Windows implementation using threading + async exception injection
+        # Note: This uses CPython internals to raise an exception in the current thread.
+        # It is a pragmatic solution because Windows lacks SIGALRM.
+        import ctypes
+
+        current_thread_id = threading.get_ident()
+
+        def _raise_timeout_in_thread():
+            # Raises TimeoutError in the target thread asynchronously.
+            # The message cannot be passed directly; raising bare TimeoutError instead.
+            ctypes.pythonapi.PyThreadState_SetAsyncExc(
+                ctypes.c_long(current_thread_id), ctypes.py_object(TimeoutError)
+            )
+
+        timer = threading.Timer(seconds, _raise_timeout_in_thread)
+        timer.daemon = True
         timer.start()
         try:
             yield
