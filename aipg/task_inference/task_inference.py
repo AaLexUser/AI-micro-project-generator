@@ -2,7 +2,6 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from aipg.exceptions import OutputParserException
-from aipg.llm import LLMClient
 from aipg.prompting.prompt_generator import (
     MicroTaskGenerationPromptGenerator,
     PromptGenerator,
@@ -13,9 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 class TaskInference:
-    def __init__(self, llm: LLMClient, *args, **kwargs):
+    def __init__(self, llm: Any, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.llm: LLMClient = llm
+        self.llm = llm
         self.fallback_value: Optional[str] = None
         self.ignored_value: List[str] = []
 

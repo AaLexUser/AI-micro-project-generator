@@ -60,3 +60,29 @@ class RagService:
         )
         return RagResult(micro_project=micro_project, source="generated")
 
+    # Integration methods for external generation
+    def retrieve(self, issue: str) -> Optional[str]:
+        issue_embedding = self.embedder.embed([issue])[0]
+        candidates: List[RetrievedItem] = self.vector_store.query(
+            embedding=issue_embedding, k=self.k_candidates
+        )
+        candidate_issues = [c.issue for c in candidates]
+        if not candidate_issues:
+            return None
+        scores = self.ranker(issue, candidate_issues)
+        if not scores:
+            return None
+        best_idx = max(range(len(scores)), key=lambda i: scores[i])
+        best_score = scores[best_idx]
+        if best_score >= self.similarity_threshold:
+            return candidates[best_idx].micro_project
+        return None
+
+    def save(self, issue: str, micro_project: str) -> None:
+        issue_embedding = self.embedder.embed([issue])[0]
+        self.vector_store.add(
+            ids=[issue],
+            embeddings=[issue_embedding],
+            metadatas=[{"issue": issue, "micro_project": micro_project}],
+        )
+
