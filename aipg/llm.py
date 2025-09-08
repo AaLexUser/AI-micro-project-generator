@@ -5,7 +5,7 @@ from typing import Any, Dict, List, TypeVar
 import litellm
 from litellm.caching.caching import Cache, LiteLLMCacheType
 from pydantic import BaseModel
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
 from aipg.configs.app_config import AppConfig
 
@@ -21,17 +21,17 @@ class LLMClient:
     def __init__(self, config: AppConfig):
         self.config = config
 
-        os.environ["LANGFUSE_PUBLIC_KEY"] = config.langfuse.public_key or ""
-        os.environ["LANGFUSE_SECRET_KEY"] = config.langfuse.secret_key or ""
-        os.environ["LANGFUSE_HOST"] = config.langfuse.host or ""
         if (
             config.langfuse.public_key
             and config.langfuse.secret_key
             and config.langfuse.host
         ):
+            os.environ.setdefault("LANGFUSE_PUBLIC_KEY", config.langfuse.public_key)
+            os.environ.setdefault("LANGFUSE_SECRET_KEY", config.langfuse.secret_key)
+            os.environ.setdefault("LANGFUSE_HOST", config.langfuse.host)
             litellm.success_callback = ["langfuse"]
             litellm.failure_callback = ["langfuse"]
-
+            
         if not self.config.llm.api_key:
             raise ValueError(
                 "API key not provided and AIPG_LLM_API_KEY environment variable not set"
@@ -54,6 +54,10 @@ class LLMClient:
     @retry(
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=1, min=4, max=10),
+        retry=retry_if_exception(
+            lambda e: getattr(e, "status_code", None) in {408, 409, 429, 500, 502, 503, 504}
+            or isinstance(e, (TimeoutError, ConnectionError))
+        ),
         reraise=True,
     )
     def query(self, messages: str | List[Dict[str, Any]]) -> str | None:

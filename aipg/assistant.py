@@ -56,12 +56,13 @@ class Assistant:
         self.llm = LLMClient(config)
 
     def handle_exception(self, stage: str, exception: Exception):
-        raise Exception(str(exception), stage)
+        raise Exception(f"{stage}: {exception}")
 
     def _run_task_inference(
         self, task_inferences: List[Type[TaskInference]], state: AgentState
-    ):
+    ) -> AgentState:
         for inference_class in task_inferences:
+            logger.debug("Running task inference: %s", inference_class.__name__)
             inference = inference_class(llm=self.llm)
             try:
                 with timeout(
@@ -73,12 +74,13 @@ class Assistant:
                 self.handle_exception(
                     f"Task inference preprocessing: {inference_class}", e
                 )
+        return state
 
     def execute(self, state: AgentState) -> AgentState:
         task_inferences: List[Type[TaskInference]] = [
             ProjectGenerationInference,
         ]
 
-        self._run_task_inference(task_inferences, state)
+        state = self._run_task_inference(task_inferences, state)
 
         return state

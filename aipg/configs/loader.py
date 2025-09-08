@@ -42,12 +42,12 @@ def _get_default_config_path(
         if not config_path.exists():
             raise ValueError(f"Config file not found: {config_path}")
         return config_path
-def _path_resolver(path: str | Path):
+def _path_resolver(path: str | Path) -> Path:
     """
-    Resolve a config path, supporting special 'caafe:xxx' syntax for package configs.
+    Resolve a config path, supporting '<PACKAGE_NAME>:<alias>' package-scoped syntax for configs.
 
     Args:
-        path: Path string, possibly with 'caafe:' prefix.
+        path: Path string, possibly with '<PACKAGE_NAME>:' prefix.
 
     Returns:
         Path object to the resolved config file.
@@ -68,9 +68,8 @@ def _load_config_file(
     Load a configuration YAML file using OmegaConf.
 
     Args:
-        config_path: Path to the config file (can use 'caafe:xxx' syntax).
+        config_path: Path to the config file (can use '<PACKAGE_NAME>:<alias>' syntax).
         name: Optional name for logging and error messages.
-
     Returns:
         Loaded configuration as an OmegaConf object.
 
@@ -140,6 +139,6 @@ def load_config(
         logging.info("Successfully applied command-line overrides")
 
     # Set pydantic schema
-    config_dict = OmegaConf.to_object(config)
+    config_dict = OmegaConf.to_container(config, resolve=True)
     validated_config = cast(T, schema.model_validate(config_dict))
     return validated_config
