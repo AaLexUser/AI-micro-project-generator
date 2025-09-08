@@ -20,14 +20,14 @@ class TaskInference:
         self.ignored_value: List[str] = []
 
     def initialize_task(self, state: AgentState):
-        self.prompt_genetator: Optional[PromptGenerator] = None
+        self.prompt_generator: Optional[PromptGenerator] = None
         self.valid_values = None
 
     def log_value(self, key: str, value: Any, max_width: int = 1600) -> None:
         """Logs a key-value pair with formatted output"""
         if not value:
             logger.info(
-                f"WARMING: Failed to identify the {key} of the task, it is set to None."
+                f"WARNING: Failed to identify the {key} of the task, it is set to None."
             )
             return
 
@@ -56,14 +56,14 @@ class TaskInference:
 
     def _chat_and_parse_prompt_output(self) -> Dict[str, Optional[str]]:
         try:
-            assert self.prompt_genetator is not None, (
+            assert self.prompt_generator is not None, (
                 "prompt_generator is not initialized"
             )
-            chat_prompt = self.prompt_genetator.generate_chat_prompt()
+            chat_prompt = self.prompt_generator.generate_chat_prompt()
             logger.debug(f"LLM chat_prompt:\n{chat_prompt}")
             output = self.llm.query(chat_prompt)
             logger.debug(f"LLM output:\n{output}")
-            parsed_output = self.prompt_genetator.parser(
+            parsed_output = self.prompt_generator.parser(
                 output,
                 valid_values=self.valid_values,
                 fallback_value=self.fallback_value,
@@ -82,10 +82,10 @@ class ProjectGenerationInference(TaskInference):
         self.initialize_task(state)
         projects = []
         for topic in state.topics:
-            self.prompt_genetator = ProjectGenerationPromptGenerator(
+            self.prompt_generator = ProjectGenerationPromptGenerator(
                 topic_description=topic
             )
-            chat_prompt = self.prompt_genetator.generate_chat_prompt()
+            chat_prompt = self.prompt_generator.generate_chat_prompt()
             response = self.llm.query(chat_prompt)
             projects.append(Project(topic=topic, description=response))
         state.projects = projects
