@@ -5,6 +5,7 @@ import re
 from typing import Any, Dict, Iterable, Optional
 
 import json_repair
+import yaml
 
 from aipg.exceptions import OutputParserException
 from aipg.state import Project
@@ -668,3 +669,76 @@ def parse_project_markdown(raw_markdown: str) -> Project:
         expert_solution=expert_solution_block,
         autotest=autotest_block,
     )
+
+
+def parse_define_topics(raw_reply: str) -> list[str]:
+    """
+    Parse YAML from the model response and return a normalized list of topics.
+
+    Accepts responses that are either:
+    - A YAML fenced code block (```yaml ... ```), or
+    - Raw YAML text, or
+    - A plain YAML list (fallback: treated as topics directly)
+
+    Returns a de-duplicated list of non-empty string topics.
+    Raises OutputParserException for invalid YAML or unsupported structures.
+    """
+    if not raw_reply or not raw_reply.strip():
+        return []
+
+    # Prefer extracting a YAML/YML fenced code block; fall back to first fenced block; then raw text
+    code_text = (
+        extract_code_block(
+            raw_reply, prefer_languages=("yaml", "yml"), return_fenced=False
+        )
+        or extract_code_block(raw_reply, return_fenced=False)
+        or raw_reply
+    )
+
+    try:
+        loaded = yaml.safe_load(code_text)
+    except yaml.YAMLError as e:
+        raise OutputParserException(
+            "Failed to parse YAML",
+            expected="YAML with a 'topics' list, e.g. topics: []",
+            got=code_text[:500],
+            details={"error": str(e)},
+        )
+
+    # Determine topics list from loaded YAML structure
+    topics_value: list[str] | None
+    if isinstance(loaded, dict):
+        topics_value = loaded.get("topics", [])
+    elif isinstance(loaded, list):
+        topics_value = loaded
+    elif loaded is None:
+        topics_value = []
+    else:
+        raise OutputParserException(
+            "Unsupported YAML root type",
+            expected="mapping with 'topics' key or a list of strings",
+            got=str(type(loaded)),
+        )
+
+    if not isinstance(topics_value, list):
+        raise OutputParserException(
+            "'topics' must be a list",
+            expected="topics: [\"Topic 1\", \"Topic 2\"]",
+            got=str(type(topics_value)),
+        )
+
+    # Normalize: keep only non-empty strings, strip whitespace, de-duplicate preserving order
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for item in topics_value:
+        if isinstance(item, str):
+            topic = item.strip()
+            if topic and topic not in seen:
+                seen.add(topic)
+                normalized.append(topic)
+        else:
+            logger.warning(
+                "Ignoring non-string topic entry: %r (type=%s)", item, type(item)
+            )
+
+    return normalized

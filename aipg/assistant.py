@@ -8,7 +8,7 @@ from typing import List, Optional, Type
 from aipg.configs.app_config import AppConfig
 from aipg.llm import LLMClient
 from aipg.state import AgentState
-from aipg.task_inference import ProjectGenerationInference, TaskInference
+from aipg.task_inference import DefineTopicsInference, ProjectGenerationInference, TaskInference
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +90,7 @@ class Assistant:
 
     def execute(self, state: AgentState) -> AgentState:
         task_inferences: List[Type[TaskInference]] = [
+            DefineTopicsInference,
             ProjectGenerationInference,
         ]
 

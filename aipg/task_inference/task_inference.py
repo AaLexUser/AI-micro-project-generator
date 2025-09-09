@@ -4,10 +4,11 @@ from typing import Any, Dict, List, Optional
 from aipg.exceptions import OutputParserException
 from aipg.llm import LLMClient
 from aipg.prompting.prompt_generator import (
+    DefineTopicsPromptGenerator,
     ProjectGenerationPromptGenerator,
     PromptGenerator,
 )
-from aipg.state import AgentState
+from aipg.state import AgentState, Topic2Project
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,45 @@ class TaskInference:
         except OutputParserException as e:
             logger.error(f"Failed to parse output: {e}")
             raise e
+        
+
+class DefineTopicsInference(TaskInference):
+    def initialize_task(self, state: AgentState):
+        super().initialize_task(state)
+    
+    def transform(self, state: AgentState) -> AgentState:
+        self.initialize_task(state)
+        comments = state.comments
+        self.prompt_generator = DefineTopicsPromptGenerator(
+            comments=comments
+        )
+        chat_prompt = self.prompt_generator.generate_chat_prompt()
+        last_exception: OutputParserException | None = None
+        for attempt in range(1, 4):
+            response = self.llm.query(chat_prompt)
+            try:
+                topics = self.prompt_generator.parser(response)
+                break
+            except OutputParserException as e:
+                last_exception = e
+                chat_prompt.extend([
+                    {"role": "assistant", "content": response or ""},
+                    {"role": "user", "content": str(e)},
+                ])
+                logger.warning(
+                    f"Define topics parse failed on attempt {attempt}/3; adding error to context and retrying: {e}"
+                )
+        else:
+            logger.error(
+                f"Failed to parse define topics after 3 attempts: {last_exception}"
+            )
+            raise last_exception if last_exception else OutputParserException(
+                "Define topics parsing failed with no additional context"
+            )
+        for topic in topics:
+            state.topic2project.append(Topic2Project(topic=topic))
+
+        return state
 
 
 class ProjectGenerationInference(TaskInference):

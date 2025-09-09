@@ -3,7 +3,7 @@ from functools import partial
 from pathlib import Path
 
 from aipg.constants import PACKAGE_PATH
-from aipg.prompting.utils import parse_and_check_json, parse_project_markdown
+from aipg.prompting.utils import parse_and_check_json, parse_project_markdown, parse_define_topics
 
 
 class PromptGenerator(ABC):
@@ -62,3 +62,18 @@ class ProjectGenerationPromptGenerator(PromptGenerator):
     
     def create_parser(self):
         return parse_project_markdown
+    
+class DefineTopicsPromptGenerator(PromptGenerator):
+    def __init__(self, comments: list[str]):
+        self.comments = comments
+        super().__init__()
+
+    @property
+    def system_prompt(self):
+        return self.load_from_file(Path(PACKAGE_PATH) / "prompting" / "define_topics.md")
+    
+    def generate_prompt(self) -> str:
+        return f"""[Комментарии ревьюера]:{''.join(f"\n- {comment}" for comment in self.comments)}"""
+    
+    def create_parser(self):
+        return parse_define_topics
