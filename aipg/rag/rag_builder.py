@@ -9,7 +9,7 @@ from .adapters import ChromaDbAdapter, GeminiEmbeddingAdapter, llm_ranker_from_c
 from .service import RagService
 
 
-def build_rag_service(config: AppConfig, llm: LLMClieпnt) -> RagService:
+def build_rag_service(config: AppConfig, llm: LLMClient) -> RagService:
     rag = getattr(config, "rag", None)
     similarity_threshold = getattr(rag, "similarity_threshold", 0.7)
     k_candidates = getattr(rag, "k_candidates", 5)
