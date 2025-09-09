@@ -12,9 +12,6 @@ try:  # Optional dependency at runtime
 except Exception:  # pragma: no cover - import-time optionality
     genai = None  # type: ignore
 
-embeddings: Sequence[Sequence[float]] = [[0.1, 0.2, 0.3]]
-metadatas: list[dict[str, str | int | float | bool]] = [{"topic": "example", "micro_project": "example_project"}]
-
 
 class ChromaDbAdapter(VectorStorePort):
     def __init__(self, collection_name: str, persist_dir: Optional[str] = None) -> None:
@@ -29,7 +26,7 @@ class ChromaDbAdapter(VectorStorePort):
         self.collection = client.get_or_create_collection(
             name=collection_name, metadata={"hnsw:space": "cosine"}
         )
-        pass
+
 
     def add(
             self,
@@ -73,7 +70,7 @@ class GeminiEmbeddingAdapter(EmbeddingPort):
         self.model_name = model_name
         self.base_url = base_url
 
-    def embedding_processor(self, texts: List[str]) -> Optional[List[List[float]]]:
+    def embedding_processor(self, texts: List[str]) -> List[List[float]]:
         if not texts:
             return []
         result = self.client.models.embed_content(model=self.model_name, contents=texts)

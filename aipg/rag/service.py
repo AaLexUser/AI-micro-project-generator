@@ -98,11 +98,3 @@ class RagService:
             metadatas=[{"topic": topic, "micro_project": micro_project}],
         )
 
-
-# client = genai.Client(api_key="AIzaSyAHleRL_CaZUARvh4wTAs8ZDpgegDMCGAM")
-# text = ["vector", "huector", "bebektor"]
-# result = client.models.embed_content(
-#     model="gemini-embedding-001", contents=text
-# )
-#
-# print([k.values for k in result.embeddings])
