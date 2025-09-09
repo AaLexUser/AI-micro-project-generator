@@ -83,6 +83,34 @@ make lint
 make lint-fix
 ```
 
+### Run the API server
+
+```bash
+uv run python -m aipg.api
+```
+
+The FastAPI server runs at `http://localhost:8000` and exposes:
+
+- `POST /projects` — body: `{ comments: string[] }` → returns `Project[]`
+- `POST /feedback` — body: `{ project, user_solution }` → returns `{ feedback }`
+- `GET /health`
+
+### Frontend (React + Vite + Tailwind)
+
+A React frontend is available in `frontend/` to interact with the API.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The app runs at `http://localhost:5173` with CORS enabled on the API. To point to a different API URL:
+
+```bash
+VITE_API_BASE=http://localhost:8000 npm run dev
+```
+
 ### Project Structure
 
 ```

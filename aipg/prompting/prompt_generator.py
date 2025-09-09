@@ -112,3 +112,7 @@ class FeedbackPromptGenerator(PromptGenerator):
         [Входные данные]: {self.project_input}
         [Ожидаемый результат]: {self.project_output}
         """
+
+    def create_parser(self):
+        # Feedback should return plain text, not JSON
+        return lambda text, **kwargs: text.strip()

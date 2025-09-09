@@ -3,6 +3,7 @@ from typing import List, Optional
 
 import uvicorn  # type: ignore[import-not-found]
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from aipg.assistant import ProjectAssistant, FeedbackAssistant
@@ -13,6 +14,18 @@ from aipg.state import Project, ProjectAgentState, FeedbackAgentState
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AI Micro Project Generator API", version="0.1.0")
+
+# Enable CORS for local development frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class GenerateRequest(BaseModel):
@@ -93,7 +106,6 @@ def generate_feedback(payload: FeedbackRequest):
         feedback = _generate_feedback(
             project=payload.project,
             user_solution=payload.user_solution,
-            config_path=payload.config_path,
             overrides=payload.overrides,
         )
         return FeedbackResponse(feedback=feedback)

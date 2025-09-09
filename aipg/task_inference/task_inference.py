@@ -141,10 +141,16 @@ class ProjectGenerationInference(TaskInference[ProjectAgentState]):
                         break
                     except OutputParserException as e:
                         last_exception = e
+                        error_feedback = (
+                            f"Ошибка парсинга: {e}\n\n"
+                            "ВАЖНО: Ответь ТОЛЬКО чистым markdown без дополнительных объяснений или комментариев. "
+                            "Начни сразу с заголовка '# Микропроект для углубления темы: ...' "
+                            "Не добавляй никакого текста до или после markdown контента."
+                        )
                         chat_prompt.extend(
                             [
                                 {"role": "assistant", "content": response or ""},
-                                {"role": "user", "content": str(e)},
+                                {"role": "user", "content": error_feedback},
                             ]
                         )
                         logger.warning(

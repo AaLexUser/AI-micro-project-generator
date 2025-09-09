@@ -93,11 +93,7 @@ class BaseAssistant[StateT]:
             logger.debug("Running task inference: %s", inference_class.__name__)
             inference = inference_class(llm=self.llm)
             try:
-                with timeout(
-                    seconds=self.config.task_timeout,
-                    error_message=f"Task inference preprocessing time out: {inference_class}",
-                ):
-                    state = inference.transform(state)
+                state = inference.transform(state)
             except Exception as e:
                 self.handle_exception(
                     f"Task inference preprocessing: {inference_class}", e
