@@ -1,0 +1,16 @@
+task_timeout: 3600
+time_limit: 14400
+llm:
+  model_name: ${oc.env:AIPG_LLM_MODEL, openai/gpt-4o}
+  base_url: ${oc.env:AIPG_LLM_BASE_URL, null}
+  api_key: ${oc.env:AIPG_LLM_API_KEY, null}
+  max_completion_tokens: 500
+  temperature: 0.5
+  caching:
+    enabled: true
+  extra_headers:
+    X-Title: AIPG
+langfuse:
+  host: ${oc.env:LANGFUSE_HOST, https://cloud.langfuse.com}
+  public_key: ${oc.env:LANGFUSE_PUBLIC_KEY, null}
+  secret_key: ${oc.env:LANGFUSE_SECRET_KEY, null}
