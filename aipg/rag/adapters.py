@@ -61,7 +61,7 @@ class GeminiEmbeddingAdapter(EmbeddingPort):
             model_name: str = "gemini-embedding-001",
             client: Optional[object] = None,
     ) -> None:
-        if client is None:
+        if client is not None:
             self.client = client
         else:
             if genai is None:
