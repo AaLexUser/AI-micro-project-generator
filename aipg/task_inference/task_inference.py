@@ -25,10 +25,8 @@ class TaskInference:
 
     def log_value(self, key: str, value: Any, max_width: int = 1600) -> None:
         """Logs a key-value pair with formatted output"""
-        if not value:
-            logger.info(
-                f"WARNING: Failed to identify the {key} of the task, it is set to None."
-            )
+        if value is None:
+            logger.warning("Failed to identify %s; setting to None.", key)
             return
 
         prefix = key
@@ -80,13 +78,14 @@ class ProjectGenerationInference(TaskInference):
         
     def transform(self, state: AgentState) -> AgentState:
         self.initialize_task(state)
-        projects = []
-        for topic in state.topics:
-            self.prompt_generator = ProjectGenerationPromptGenerator(
-                topic_description=topic
-            )
-            chat_prompt = self.prompt_generator.generate_chat_prompt()
-            response = self.llm.query(chat_prompt)
-            projects.append(Project(topic=topic, description=response))
+        projects = state.projects
+        for project in state.projects:
+            if not project.description:
+                self.prompt_generator = ProjectGenerationPromptGenerator(
+                    topic_description=project.topic
+                )
+                chat_prompt = self.prompt_generator.generate_chat_prompt()
+                response = self.llm.query(chat_prompt)
+                project.description = response
         state.projects = projects
         return state

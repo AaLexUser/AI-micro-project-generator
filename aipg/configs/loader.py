@@ -76,15 +76,15 @@ def _load_config_file(
     Raises:
         ValueError: If the config file is not found.
     """
-    custom_config_path = _path_resolver(config_path)
-    name = name if name else custom_config_path.name
-    if not custom_config_path.is_file():
+    resolved_config_path = _path_resolver(config_path)
+    name = name if name else resolved_config_path.name
+    if not resolved_config_path.is_file():
         raise ValueError(
-            f"{name.capitalize()} config file not found at: {custom_config_path}"
+            f"{name.capitalize()} config file not found at: {resolved_config_path}"
         )
-    logging.info(f"Loading {name} config from: {custom_config_path}")
-    custom_config_path = OmegaConf.load(custom_config_path)
-    return custom_config_path
+    logging.info(f"Loading {name} config from: {resolved_config_path}")
+    loaded_config = OmegaConf.load(resolved_config_path)
+    return loaded_config
 
 
 T = TypeVar("T", bound=BaseModel)

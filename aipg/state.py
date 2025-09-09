@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Project:
-    topic: str | None = None
+    topic: str
     description: str | None = None
     
     def __repr__(self):
@@ -11,8 +11,7 @@ class Project:
 @dataclass
 class AgentState:
     comments: list[str] = field(default_factory=list)
-    topics: list[str] = field(default_factory=list)
     projects: list[Project] = field(default_factory=list)
     
     def __repr__(self):
-        return f"AgentState(comments={self.comments}, topics={self.topics}, projects={self.projects})"
+        return f"AgentState(comments={self.comments}, projects={self.projects})"

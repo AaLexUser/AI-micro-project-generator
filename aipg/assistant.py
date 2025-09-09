@@ -23,12 +23,21 @@ def timeout(seconds: int, error_message: Optional[str] = None):
 
         current_thread_id = threading.get_ident()
 
+        # Configure CPython API call for safety
+        _set_async_exc = ctypes.pythonapi.PyThreadState_SetAsyncExc
+        _set_async_exc.argtypes = [ctypes.c_long, ctypes.py_object]
+        _set_async_exc.restype = ctypes.c_int
+
         def _raise_timeout_in_thread():
             # Raises TimeoutError in the target thread asynchronously.
             # The message cannot be passed directly; raising bare TimeoutError instead.
-            ctypes.pythonapi.PyThreadState_SetAsyncExc(
-                ctypes.c_long(current_thread_id), ctypes.py_object(TimeoutError)
-            )
+            res = _set_async_exc(ctypes.c_long(current_thread_id), ctypes.py_object(TimeoutError))
+            if res == 0:
+                logger.warning("timeout: failed to deliver TimeoutError to thread %s", current_thread_id)
+            elif res > 1:
+                # Revert per CPython docs
+                _set_async_exc(ctypes.c_long(current_thread_id), None)
+                logger.error("timeout: PyThreadState_SetAsyncExc affected multiple threads; reverted")
 
         timer = threading.Timer(seconds, _raise_timeout_in_thread)
         timer.daemon = True
@@ -38,17 +47,20 @@ def timeout(seconds: int, error_message: Optional[str] = None):
         finally:
             timer.cancel()
     else:
-        # Unix impementation using SIGALRM
+        # Unix implementation using SIGALRM
         def handle_timeout(signum, frame):
             raise TimeoutError(error_message)
 
+        if threading.current_thread() is not threading.main_thread():
+            raise RuntimeError("timeout(SIGALRM) must be used from the main thread")
+        previous = signal.getsignal(signal.SIGALRM)
         signal.signal(signal.SIGALRM, handle_timeout)
         signal.alarm(seconds)
         try:
             yield
         finally:
             signal.alarm(0)
-
+            signal.signal(signal.SIGALRM, previous)
 
 class Assistant:
     def __init__(self, config: AppConfig) -> None:
