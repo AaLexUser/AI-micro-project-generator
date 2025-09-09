@@ -7,7 +7,7 @@ from aipg.prompting.prompt_generator import (
     ProjectGenerationPromptGenerator,
     PromptGenerator,
 )
-from aipg.state import Project, AgentState
+from aipg.state import AgentState
 
 logger = logging.getLogger(__name__)
 
@@ -75,17 +75,37 @@ class TaskInference:
 class ProjectGenerationInference(TaskInference):
     def initialize_task(self, state: AgentState):
         super().initialize_task(state)
-        
+    
     def transform(self, state: AgentState) -> AgentState:
         self.initialize_task(state)
-        projects = state.projects
-        for project in state.projects:
-            if not project.description:
+        topic2project = state.topic2project
+        for item in state.topic2project:
+            if item.project is None:
                 self.prompt_generator = ProjectGenerationPromptGenerator(
-                    topic_description=project.topic
+                    topic=item.topic
                 )
                 chat_prompt = self.prompt_generator.generate_chat_prompt()
-                response = self.llm.query(chat_prompt)
-                project.description = response
-        state.projects = projects
+                last_exception: OutputParserException | None = None
+                for attempt in range(1, 4):
+                    response = self.llm.query(chat_prompt)
+                    try:
+                        item.project = self.prompt_generator.parser(response)
+                        break
+                    except OutputParserException as e:
+                        last_exception = e
+                        chat_prompt.extend([
+                            {"role": "assistant", "content": response or ""},
+                            {"role": "user", "content": str(e)},
+                        ])
+                        logger.warning(
+                            f"Project parse failed on attempt {attempt}/3; adding error to context and retrying: {e}"
+                        )
+                else:
+                    logger.error(
+                        f"Failed to parse project after 3 attempts: {last_exception}"
+                    )
+                    raise last_exception if last_exception else OutputParserException(
+                        "Project parsing failed with no additional context"
+                    )
+        state.topic2project = topic2project
         return state

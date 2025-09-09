@@ -10,7 +10,7 @@ from rich import print as rprint
 from aipg.assistant import Assistant
 from aipg.configs.app_config import AppConfig
 from aipg.configs.loader import load_config
-from aipg.state import AgentState, Project
+from aipg.state import AgentState, Topic2Project
 
 
 @dataclass
@@ -82,7 +82,7 @@ def run_assistant(
     with time_block("initializing components", timer):
         rprint("🤖 [bold red] Welcome to Cherry AI Project Generator [/bold red]")
         assistant = Assistant(config)
-        state = AgentState(projects=[Project(topic=topic)])
+        state = AgentState(topic2project=[Topic2Project(topic=topic)])
         state = assistant.execute(state)
         rprint(state)
 

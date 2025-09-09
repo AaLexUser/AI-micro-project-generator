@@ -1,17 +1,21 @@
-from dataclasses import dataclass, field
 
-@dataclass
-class Project:
+from pydantic import BaseModel, Field
+
+class Project(BaseModel):
+    raw_markdown: str
     topic: str
-    description: str | None = None
-    
-    def __repr__(self):
-        return f"Project(topic={self.topic}, description={self.description})"
+    goal: str
+    description: str
+    input_data: str
+    expected_output: str
+    expert_solution: str
+    autotest: str
 
-@dataclass
-class AgentState:
-    comments: list[str] = field(default_factory=list)
-    projects: list[Project] = field(default_factory=list)
-    
-    def __repr__(self):
-        return f"AgentState(comments={self.comments}, projects={self.projects})"
+class Topic2Project(BaseModel):
+    topic: str
+    project: Project | None = Field(default=None)
+
+
+class AgentState(BaseModel):
+    comments: list[str] = Field(default_factory=list)
+    topic2project: list[Topic2Project] = Field(default_factory=list)

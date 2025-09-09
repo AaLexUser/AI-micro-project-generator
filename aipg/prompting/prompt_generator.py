@@ -3,14 +3,13 @@ from functools import partial
 from pathlib import Path
 
 from aipg.constants import PACKAGE_PATH
-from aipg.prompting.utils import parse_and_check_json
+from aipg.prompting.utils import parse_and_check_json, parse_project_markdown
 
 
 class PromptGenerator(ABC):
     fields: list[str] = []
 
-    def __init__(self, topic_description: str = ""):
-        self.topic_description = topic_description
+    def __init__(self):
         self.parser = self.create_parser()
 
     @property
@@ -50,12 +49,16 @@ class PromptGenerator(ABC):
 
 class ProjectGenerationPromptGenerator(PromptGenerator):
     
-    def __init__(self, topic_description: str = ""):
-        super().__init__(topic_description)
+    def __init__(self, topic: str):
+        self.topic = topic
+        super().__init__()
 
     @property
     def system_prompt(self):
         return self.load_from_file(Path(PACKAGE_PATH) / "prompting" / "project_gen.md")
 
     def generate_prompt(self) -> str:
-        return f"""[Тема]: {self.topic_description}"""
+        return f"""[Тема]: {self.topic}"""
+    
+    def create_parser(self):
+        return parse_project_markdown
