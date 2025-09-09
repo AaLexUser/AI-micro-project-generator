@@ -1,0 +1,27 @@
+from __future__ import annotations
+from typing import Protocol, Iterable, Optional, List
+from datetime import datetime
+
+from model.models import Student, Task, StudentsTask
+
+
+class StudentRepo(Protocol):
+    def get(self, student_id: int) -> Optional[Student]: ...
+    def create(self) -> Student: ...
+    def assign_task(self, student_id: int, task_id: int) -> StudentsTask: ...
+    def mark_finished(
+        self, student_id: int, task_id: int, when: Optional[datetime] = None
+    ) -> None: ...
+    def list_tasks(self, student_id: int, open_only: bool = False) -> List[Task]: ...
+
+
+class TaskRepo(Protocol):
+    def get(self, task_id: int) -> Optional[Task]: ...
+    def create(
+        self,
+        *,
+        description: str,
+        project_description: str | None = None,
+        solution: str | None = None,
+        tests: str | None = None,
+    ) -> Task: ...
