@@ -7,10 +7,10 @@ from typing import Annotated, List, Optional
 import typer
 from rich import print as rprint
 
-from aipg.assistant import Assistant
+from aipg.assistant import ProjectAssistant
 from aipg.configs.app_config import AppConfig
 from aipg.configs.loader import load_config
-from aipg.state import AgentState
+from aipg.state import ProjectAgentState
 
 
 @dataclass
@@ -27,6 +27,8 @@ class TimingContext:
     def time_remaining(self) -> float:
         # Never show negative remaining time in logs
         return max(0.0, self.total_time_limit - self.time_elapsed)
+
+
 @contextmanager
 def time_block(description: str, timer: TimingContext):
     """Context manager for timing code blocks and logging the duration."""
@@ -75,14 +77,14 @@ def run_assistant(
     except Exception as e:
         logging.error(f"Failed to load config: {e}")
         raise
-    
+
     time_limit = getattr(config, "time_limit", float("inf")) or float("inf")
     timer = TimingContext(start_time=start_time, total_time_limit=float(time_limit))
 
     with time_block("initializing components", timer):
         rprint("🤖 [bold red] Welcome to Cherry AI Project Generator [/bold red]")
-        assistant = Assistant(config)
-        state = AgentState(comments=comments)
+        assistant = ProjectAssistant(config)
+        state = ProjectAgentState(comments=comments)
         state = assistant.execute(state)
         rprint(state)
     return state

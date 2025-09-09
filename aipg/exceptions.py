@@ -33,6 +33,7 @@ class OutputParserException(ValueError):
         self.expected = expected
         self.got = got
         self.details = details or {}
-    
+
+
 class OutputValidationException(ValueError):
     """Exception that output validators should raise to signify a validation error."""
