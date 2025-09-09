@@ -42,6 +42,8 @@ def _get_default_config_path(
         if not config_path.exists():
             raise ValueError(f"Config file not found: {config_path}")
         return config_path
+
+
 def _path_resolver(path: str | Path) -> Path:
     """
     Resolve a config path, supporting '<PACKAGE_NAME>:<alias>' package-scoped syntax for configs.

@@ -1,5 +1,5 @@
-
 from pydantic import BaseModel, Field
+
 
 class Project(BaseModel):
     raw_markdown: str
@@ -10,6 +10,7 @@ class Project(BaseModel):
     expected_output: str
     expert_solution: str
     autotest: str
+
 
 class Topic2Project(BaseModel):
     topic: str

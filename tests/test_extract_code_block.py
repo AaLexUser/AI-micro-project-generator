@@ -104,5 +104,3 @@ def test_extract_code_block_main_paths(text, prefer_languages, expected):
     )
 
     assert result == expected
-
-

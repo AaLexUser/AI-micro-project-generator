@@ -8,7 +8,11 @@ from typing import List, Optional, Type
 from aipg.configs.app_config import AppConfig
 from aipg.llm import LLMClient
 from aipg.state import AgentState
-from aipg.task_inference import DefineTopicsInference, ProjectGenerationInference, TaskInference
+from aipg.task_inference import (
+    DefineTopicsInference,
+    ProjectGenerationInference,
+    TaskInference,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +35,20 @@ def timeout(seconds: int, error_message: Optional[str] = None):
         def _raise_timeout_in_thread():
             # Raises TimeoutError in the target thread asynchronously.
             # The message cannot be passed directly; raising bare TimeoutError instead.
-            res = _set_async_exc(ctypes.c_long(current_thread_id), ctypes.py_object(TimeoutError))
+            res = _set_async_exc(
+                ctypes.c_long(current_thread_id), ctypes.py_object(TimeoutError)
+            )
             if res == 0:
-                logger.warning("timeout: failed to deliver TimeoutError to thread %s", current_thread_id)
+                logger.warning(
+                    "timeout: failed to deliver TimeoutError to thread %s",
+                    current_thread_id,
+                )
             elif res > 1:
                 # Revert per CPython docs
                 _set_async_exc(ctypes.c_long(current_thread_id), None)
-                logger.error("timeout: PyThreadState_SetAsyncExc affected multiple threads; reverted")
+                logger.error(
+                    "timeout: PyThreadState_SetAsyncExc affected multiple threads; reverted"
+                )
 
         timer = threading.Timer(seconds, _raise_timeout_in_thread)
         timer.daemon = True
@@ -61,6 +72,7 @@ def timeout(seconds: int, error_message: Optional[str] = None):
         finally:
             signal.alarm(0)
             signal.signal(signal.SIGALRM, previous)
+
 
 class Assistant:
     def __init__(self, config: AppConfig) -> None:

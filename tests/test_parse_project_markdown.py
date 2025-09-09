@@ -32,9 +32,7 @@ def _build_markdown(
 ```
 """.strip()
 
-    autotest_code_inner = (
-        "def test_sorting():\n    assert sorted([3,1,2]) == [1,2,3]\n"
-    )
+    autotest_code_inner = "def test_sorting():\n    assert sorted([3,1,2]) == [1,2,3]\n"
     autotest_section = f"""
 ```{autotest_lang}
 {autotest_code_inner}
@@ -98,9 +96,7 @@ def test_parse_project_markdown_success_variations(
 
     # Core fields should be preserved (trimmed) as given
     assert "Найти эффективный метод сортировки." == result.goal
-    assert (
-        "Реализуйте алгоритм сортировки для целых чисел." == result.description
-    )
+    assert "Реализуйте алгоритм сортировки для целых чисел." == result.description
     assert "Список целых чисел." == result.input_data
 
     # Expected output should have no fenced markers and include our content
@@ -215,7 +211,9 @@ def test_sorting():
         (
             _valid_doc(autotest_lang="javascript"),
             lambda e: (
-                e.details.get("section") == "Автотест" and isinstance(e.got, str) and e.got.startswith("lang=")
+                e.details.get("section") == "Автотест"
+                and isinstance(e.got, str)
+                and e.got.startswith("lang=")
             ),
         ),
     ],
@@ -238,7 +236,10 @@ def test_parse_project_markdown_raises_cases(raw, check):
 def test_parse_project_markdown_outer_markdown_fence_success(open_fence: str):
     # Build a valid, unwrapped doc then wrap in the specified outer markdown fence
     inner = _build_markdown(
-        wrap_all=False, autotest_lang="python", topic_bracketed=False, expected_fenced=True
+        wrap_all=False,
+        autotest_lang="python",
+        topic_bracketed=False,
+        expected_fenced=True,
     )
     close_fence = "`" * (open_fence.count("`"))
     raw = f"{open_fence}\n{inner}\n{close_fence}"
@@ -248,5 +249,3 @@ def test_parse_project_markdown_outer_markdown_fence_success(open_fence: str):
     assert "Найти эффективный метод сортировки." == result.goal
     assert "```" not in result.expert_solution
     assert "def test_sorting():" in result.autotest
-
-

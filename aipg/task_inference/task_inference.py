@@ -71,18 +71,16 @@ class TaskInference:
         except OutputParserException as e:
             logger.error(f"Failed to parse output: {e}")
             raise e
-        
+
 
 class DefineTopicsInference(TaskInference):
     def initialize_task(self, state: AgentState):
         super().initialize_task(state)
-    
+
     def transform(self, state: AgentState) -> AgentState:
         self.initialize_task(state)
         comments = state.comments
-        self.prompt_generator = DefineTopicsPromptGenerator(
-            comments=comments
-        )
+        self.prompt_generator = DefineTopicsPromptGenerator(comments=comments)
         chat_prompt = self.prompt_generator.generate_chat_prompt()
         last_exception: OutputParserException | None = None
         for attempt in range(1, 4):
@@ -92,10 +90,12 @@ class DefineTopicsInference(TaskInference):
                 break
             except OutputParserException as e:
                 last_exception = e
-                chat_prompt.extend([
-                    {"role": "assistant", "content": response or ""},
-                    {"role": "user", "content": str(e)},
-                ])
+                chat_prompt.extend(
+                    [
+                        {"role": "assistant", "content": response or ""},
+                        {"role": "user", "content": str(e)},
+                    ]
+                )
                 logger.warning(
                     f"Define topics parse failed on attempt {attempt}/3; adding error to context and retrying: {e}"
                 )
@@ -103,8 +103,12 @@ class DefineTopicsInference(TaskInference):
             logger.error(
                 f"Failed to parse define topics after 3 attempts: {last_exception}"
             )
-            raise last_exception if last_exception else OutputParserException(
-                "Define topics parsing failed with no additional context"
+            raise (
+                last_exception
+                if last_exception
+                else OutputParserException(
+                    "Define topics parsing failed with no additional context"
+                )
             )
         for topic in topics:
             state.topic2project.append(Topic2Project(topic=topic))
@@ -115,7 +119,7 @@ class DefineTopicsInference(TaskInference):
 class ProjectGenerationInference(TaskInference):
     def initialize_task(self, state: AgentState):
         super().initialize_task(state)
-    
+
     def transform(self, state: AgentState) -> AgentState:
         self.initialize_task(state)
         topic2project = state.topic2project
@@ -133,10 +137,12 @@ class ProjectGenerationInference(TaskInference):
                         break
                     except OutputParserException as e:
                         last_exception = e
-                        chat_prompt.extend([
-                            {"role": "assistant", "content": response or ""},
-                            {"role": "user", "content": str(e)},
-                        ])
+                        chat_prompt.extend(
+                            [
+                                {"role": "assistant", "content": response or ""},
+                                {"role": "user", "content": str(e)},
+                            ]
+                        )
                         logger.warning(
                             f"Project parse failed on attempt {attempt}/3; adding error to context and retrying: {e}"
                         )
@@ -144,8 +150,12 @@ class ProjectGenerationInference(TaskInference):
                     logger.error(
                         f"Failed to parse project after 3 attempts: {last_exception}"
                     )
-                    raise last_exception if last_exception else OutputParserException(
-                        "Project parsing failed with no additional context"
+                    raise (
+                        last_exception
+                        if last_exception
+                        else OutputParserException(
+                            "Project parsing failed with no additional context"
+                        )
                     )
         state.topic2project = topic2project
         return state

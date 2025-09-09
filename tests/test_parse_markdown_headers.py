@@ -88,4 +88,3 @@ Content
 """
     sections = parse_markdown_headers(md)
     assert sections == [("Header", "Content")]
-

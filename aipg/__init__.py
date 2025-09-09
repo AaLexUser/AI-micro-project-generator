@@ -27,6 +27,8 @@ class TimingContext:
     def time_remaining(self) -> float:
         # Never show negative remaining time in logs
         return max(0.0, self.total_time_limit - self.time_elapsed)
+
+
 @contextmanager
 def time_block(description: str, timer: TimingContext):
     """Context manager for timing code blocks and logging the duration."""
@@ -75,7 +77,7 @@ def run_assistant(
     except Exception as e:
         logging.error(f"Failed to load config: {e}")
         raise
-    
+
     time_limit = getattr(config, "time_limit", float("inf")) or float("inf")
     timer = TimingContext(start_time=start_time, total_time_limit=float(time_limit))
 

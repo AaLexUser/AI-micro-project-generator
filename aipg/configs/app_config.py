@@ -29,9 +29,20 @@ class LangfuseConfig(BaseModel):
     secret_key: Optional[str] = None
 
 
+class RagConfig(BaseModel):
+    similarity_threshold: float = 0.7
+    k_candidates: int = 5
+    collection_name: str = "micro_projects"
+    chroma_path: str = Field(default=str(Path(PACKAGE_PATH) / "cache" / "chroma"))
+    embedding_model: str = "gemini-embedding-001"
+    embedding_base_url: Optional[str] = None
+    embedding_api_key: Optional[str] = None
+
+
 class AppConfig(BaseModel):
     llm: LLMConfig = Field(default_factory=LLMConfig)
     langfuse: LangfuseConfig = Field(default_factory=LangfuseConfig)
     task_timeout: int = 3600
     time_limit: int = 14400
     session_id: str = Field(default_factory=lambda: uuid4().hex)
+    rag: RagConfig = RagConfig()

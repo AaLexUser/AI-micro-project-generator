@@ -439,9 +439,13 @@ def extract_expected_output(raw_reply: str) -> str:
 
     if len(blocks) == 1:
         b_start, b_end, b_lang = blocks[0]
-        has_outside_nonblank = any(line.strip() for line in lines[:b_start] + lines[b_end + 1 :])
+        has_outside_nonblank = any(
+            line.strip() for line in lines[:b_start] + lines[b_end + 1 :]
+        )
         # Prefer inner content for outer markdown blocks even if prelude/outro exists
-        if (b_lang and b_lang.lower() in {"markdown", "md"}) or not has_outside_nonblank:
+        if (
+            b_lang and b_lang.lower() in {"markdown", "md"}
+        ) or not has_outside_nonblank:
             inner = "\n".join(lines[b_start + 1 : b_end])
             return _strip_all_fenced_code_markers(inner)
         # Otherwise the fenced block is embedded inside other meaningful text:
@@ -523,7 +527,9 @@ def parse_project_markdown(raw_markdown: str) -> Project:
         if end <= start:
             return text
         m_close = _MD_FENCE_RE.match(lines[end])
-        if not (m_close and m_close.group(1)[0] == char and len(m_close.group(1)) >= count):
+        if not (
+            m_close and m_close.group(1)[0] == char and len(m_close.group(1)) >= count
+        ):
             return text
         # Unwrap inner content without stripping any internal fences
         inner = "\n".join(lines[start + 1 : end])
@@ -723,7 +729,7 @@ def parse_define_topics(raw_reply: str) -> list[str]:
     if not isinstance(topics_value, list):
         raise OutputParserException(
             "'topics' must be a list",
-            expected="topics: [\"Topic 1\", \"Topic 2\"]",
+            expected='topics: ["Topic 1", "Topic 2"]',
             got=str(type(topics_value)),
         )
 
