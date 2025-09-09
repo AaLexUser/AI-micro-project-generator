@@ -3,12 +3,20 @@ import signal
 import sys
 import threading
 from contextlib import contextmanager
-from typing import List, Optional, Type
+from typing import List, Optional, Type, TypeVar
 
 from aipg.configs.app_config import AppConfig
 from aipg.llm import LLMClient
-from aipg.state import AgentState
-from aipg.task_inference import DefineTopicsInference, ProjectGenerationInference, TaskInference
+from aipg.state import FeedbackAgentState, ProjectAgentState
+from aipg.task_inference import (
+    DefineTopicsInference,
+    FeedbackInference,
+    ProjectGenerationInference,
+    TaskInference,
+)
+from pydantic import BaseModel
+
+StateT = TypeVar("StateT", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +39,20 @@ def timeout(seconds: int, error_message: Optional[str] = None):
         def _raise_timeout_in_thread():
             # Raises TimeoutError in the target thread asynchronously.
             # The message cannot be passed directly; raising bare TimeoutError instead.
-            res = _set_async_exc(ctypes.c_long(current_thread_id), ctypes.py_object(TimeoutError))
+            res = _set_async_exc(
+                ctypes.c_long(current_thread_id), ctypes.py_object(TimeoutError)
+            )
             if res == 0:
-                logger.warning("timeout: failed to deliver TimeoutError to thread %s", current_thread_id)
+                logger.warning(
+                    "timeout: failed to deliver TimeoutError to thread %s",
+                    current_thread_id,
+                )
             elif res > 1:
                 # Revert per CPython docs
                 _set_async_exc(ctypes.c_long(current_thread_id), None)
-                logger.error("timeout: PyThreadState_SetAsyncExc affected multiple threads; reverted")
+                logger.error(
+                    "timeout: PyThreadState_SetAsyncExc affected multiple threads; reverted"
+                )
 
         timer = threading.Timer(seconds, _raise_timeout_in_thread)
         timer.daemon = True
@@ -61,8 +76,9 @@ def timeout(seconds: int, error_message: Optional[str] = None):
         finally:
             signal.alarm(0)
             signal.signal(signal.SIGALRM, previous)
-
-class Assistant:
+            
+            
+class BaseAssistant[StateT]:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
         self.llm = LLMClient(config)
@@ -71,8 +87,8 @@ class Assistant:
         raise Exception(f"{stage}: {exception}")
 
     def _run_task_inference(
-        self, task_inferences: List[Type[TaskInference]], state: AgentState
-    ) -> AgentState:
+        self, task_inferences: List[Type[TaskInference]], state: StateT
+    ) -> StateT:
         for inference_class in task_inferences:
             logger.debug("Running task inference: %s", inference_class.__name__)
             inference = inference_class(llm=self.llm)
@@ -88,10 +104,27 @@ class Assistant:
                 )
         return state
 
-    def execute(self, state: AgentState) -> AgentState:
-        task_inferences: List[Type[TaskInference]] = [
+    def execute(self, state: StateT) -> StateT:
+        raise NotImplementedError("Subclasses must implement this method")
+
+
+class ProjectAssistant(BaseAssistant[ProjectAgentState]):
+
+    def execute(self, state: ProjectAgentState) -> ProjectAgentState:
+        task_inferences: List[Type[TaskInference[ProjectAgentState]]] = [
             DefineTopicsInference,
             ProjectGenerationInference,
+        ]
+
+        state = self._run_task_inference(task_inferences, state)
+
+        return state
+
+
+class FeedbackAssistant(BaseAssistant[FeedbackAgentState]):
+    def execute(self, state: FeedbackAgentState) -> FeedbackAgentState:
+        task_inferences: List[Type[TaskInference[FeedbackAgentState]]] = [
+            FeedbackInference,
         ]
 
         state = self._run_task_inference(task_inferences, state)

@@ -110,5 +110,3 @@ def apply_overrides(
 
     override_conf_cfg = OmegaConf.create(override_conf)  # type: ignore
     return OmegaConf.merge(config, override_conf_cfg)
-
-

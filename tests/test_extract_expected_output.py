@@ -20,7 +20,7 @@ After text
 """,
             "# Header\nprint('hello')\n## Header 2\nprint('world')",
         ),
-(
+        (
             """
 Prelude text
 ````markdown
@@ -60,8 +60,8 @@ print('second')
 """,
             "# Header\nprint('second')\n## Header 2",
         ),
-(
-           """
+        (
+            """
 ````
 # Header
 ```python
@@ -82,5 +82,3 @@ print('second')
 def test_extract_expected_output_main_paths(text, expected):
     result = extract_expected_output(text)
     assert result == expected
-
-

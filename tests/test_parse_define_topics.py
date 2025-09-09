@@ -1,7 +1,7 @@
 import pytest
 
-from aipg.prompting.utils import parse_define_topics
 from aipg.exceptions import OutputParserException
+from aipg.prompting.utils import parse_define_topics
 
 
 @pytest.mark.parametrize(
@@ -12,8 +12,8 @@ from aipg.exceptions import OutputParserException
             (
                 "```yaml\n"
                 "topics:\n"
-                "  - \"SQL: Разница между INNER и LEFT JOIN\"\n"
-                "  - \"Pandas: Агрегация с groupby\"\n"
+                '  - "SQL: Разница между INNER и LEFT JOIN"\n'
+                '  - "Pandas: Агрегация с groupby"\n'
                 "```\n"
             ),
             [
@@ -29,8 +29,8 @@ from aipg.exceptions import OutputParserException
         (
             # Plain YAML list (no mapping)
             (
-                "- \"SQL: Разница между INNER и LEFT JOIN\"\n"
-                "- \"Pandas: Агрегация с groupby\"\n"
+                '- "SQL: Разница между INNER и LEFT JOIN"\n'
+                '- "Pandas: Агрегация с groupby"\n'
             ),
             [
                 "SQL: Разница между INNER и LEFT JOIN",
@@ -60,5 +60,3 @@ def test_parse_define_topics_success(raw_input: str, expected: list[str]):
 def test_parse_define_topics_errors(raw_input: str):
     with pytest.raises(OutputParserException):
         parse_define_topics(raw_input)
-
-

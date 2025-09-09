@@ -1,26 +1,30 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Generic, List, Optional, TypeVar
 
 from aipg.exceptions import OutputParserException
 from aipg.llm import LLMClient
 from aipg.prompting.prompt_generator import (
     DefineTopicsPromptGenerator,
+    FeedbackPromptGenerator,
     ProjectGenerationPromptGenerator,
     PromptGenerator,
 )
-from aipg.state import AgentState, Topic2Project
+from aipg.state import FeedbackAgentState, ProjectAgentState, Topic2Project
+from pydantic import BaseModel
+
+StateT = TypeVar("StateT", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
 
 
-class TaskInference:
+class TaskInference(Generic[StateT]):
     def __init__(self, llm: LLMClient, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.llm: LLMClient = llm
         self.fallback_value: Optional[str] = None
         self.ignored_value: List[str] = []
 
-    def initialize_task(self, state: AgentState):
+    def initialize_task(self, state: StateT):
         self.prompt_generator: Optional[PromptGenerator] = None
         self.valid_values = None
 
@@ -40,7 +44,7 @@ class TaskInference:
 
         logger.info(f"{bold_start}{prefix}{bold_end}: {value_str}")
 
-    def transform(self, state: AgentState) -> AgentState:
+    def transform(self, state: StateT) -> StateT:
         self.initialize_task(state)
         parser_output = self._chat_and_parse_prompt_output()
         for k, v in parser_output.items():
@@ -71,18 +75,16 @@ class TaskInference:
         except OutputParserException as e:
             logger.error(f"Failed to parse output: {e}")
             raise e
-        
 
-class DefineTopicsInference(TaskInference):
-    def initialize_task(self, state: AgentState):
+
+class DefineTopicsInference(TaskInference[ProjectAgentState]):
+    def initialize_task(self, state: ProjectAgentState):
         super().initialize_task(state)
-    
-    def transform(self, state: AgentState) -> AgentState:
+
+    def transform(self, state: ProjectAgentState) -> ProjectAgentState:
         self.initialize_task(state)
         comments = state.comments
-        self.prompt_generator = DefineTopicsPromptGenerator(
-            comments=comments
-        )
+        self.prompt_generator = DefineTopicsPromptGenerator(comments=comments)
         chat_prompt = self.prompt_generator.generate_chat_prompt()
         last_exception: OutputParserException | None = None
         for attempt in range(1, 4):
@@ -92,10 +94,12 @@ class DefineTopicsInference(TaskInference):
                 break
             except OutputParserException as e:
                 last_exception = e
-                chat_prompt.extend([
-                    {"role": "assistant", "content": response or ""},
-                    {"role": "user", "content": str(e)},
-                ])
+                chat_prompt.extend(
+                    [
+                        {"role": "assistant", "content": response or ""},
+                        {"role": "user", "content": str(e)},
+                    ]
+                )
                 logger.warning(
                     f"Define topics parse failed on attempt {attempt}/3; adding error to context and retrying: {e}"
                 )
@@ -103,8 +107,12 @@ class DefineTopicsInference(TaskInference):
             logger.error(
                 f"Failed to parse define topics after 3 attempts: {last_exception}"
             )
-            raise last_exception if last_exception else OutputParserException(
-                "Define topics parsing failed with no additional context"
+            raise (
+                last_exception
+                if last_exception
+                else OutputParserException(
+                    "Define topics parsing failed with no additional context"
+                )
             )
         for topic in topics:
             state.topic2project.append(Topic2Project(topic=topic))
@@ -112,11 +120,11 @@ class DefineTopicsInference(TaskInference):
         return state
 
 
-class ProjectGenerationInference(TaskInference):
-    def initialize_task(self, state: AgentState):
+class ProjectGenerationInference(TaskInference[ProjectAgentState]):
+    def initialize_task(self, state: ProjectAgentState):
         super().initialize_task(state)
-    
-    def transform(self, state: AgentState) -> AgentState:
+
+    def transform(self, state: ProjectAgentState) -> ProjectAgentState:
         self.initialize_task(state)
         topic2project = state.topic2project
         for item in state.topic2project:
@@ -133,10 +141,12 @@ class ProjectGenerationInference(TaskInference):
                         break
                     except OutputParserException as e:
                         last_exception = e
-                        chat_prompt.extend([
-                            {"role": "assistant", "content": response or ""},
-                            {"role": "user", "content": str(e)},
-                        ])
+                        chat_prompt.extend(
+                            [
+                                {"role": "assistant", "content": response or ""},
+                                {"role": "user", "content": str(e)},
+                            ]
+                        )
                         logger.warning(
                             f"Project parse failed on attempt {attempt}/3; adding error to context and retrying: {e}"
                         )
@@ -144,8 +154,32 @@ class ProjectGenerationInference(TaskInference):
                     logger.error(
                         f"Failed to parse project after 3 attempts: {last_exception}"
                     )
-                    raise last_exception if last_exception else OutputParserException(
-                        "Project parsing failed with no additional context"
+                    raise (
+                        last_exception
+                        if last_exception
+                        else OutputParserException(
+                            "Project parsing failed with no additional context"
+                        )
                     )
         state.topic2project = topic2project
+        return state
+
+
+class FeedbackInference(TaskInference[FeedbackAgentState]):
+    def initialize_task(self, state: FeedbackAgentState):
+        super().initialize_task(state)
+
+    def transform(self, state: FeedbackAgentState) -> FeedbackAgentState:
+        self.initialize_task(state)
+        self.prompt_generator = FeedbackPromptGenerator(
+            user_solution=state.user_solution,
+            project_goal=state.project.goal,
+            project_description=state.project.description,
+            project_input=state.project.input_data,
+            project_output=state.project.expected_output,
+        )
+        chat_prompt = self.prompt_generator.generate_chat_prompt()
+        response = self.llm.query(chat_prompt)
+        feedback = self.prompt_generator.parser(response)
+        state.feedback = feedback
         return state
