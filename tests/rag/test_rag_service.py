@@ -2,9 +2,9 @@ from typing import Any, List, Optional
 
 import pytest
 
+from aipg.domain import Project, Topic2Project
 from aipg.rag.ports import EmbeddingPort, RetrievedItem, VectorStorePort
 from aipg.rag.service import RagService
-from aipg.domain import Project, Topic2Project
 
 
 def create_topic2project(

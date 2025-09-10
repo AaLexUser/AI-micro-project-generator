@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from aipg.exceptions import OutputParserException
 from aipg.domain import ProcessTopicAgentState, Project, ProjectValidationResult
+from aipg.exceptions import OutputParserException
 from aipg.task_inference.task_inference import ProjectValidatorInference
 
 

@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 
 from aipg.sandbox.domain import SandboxResult
 
+
 class ProjectValidationCheck(BaseModel):
     rule_id: str
     passed: bool

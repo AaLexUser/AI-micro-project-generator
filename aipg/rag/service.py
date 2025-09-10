@@ -2,8 +2,8 @@ import logging
 import uuid
 from typing import List
 
-from aipg.rag.ports import EmbeddingPort, RetrievedItem, VectorStorePort
 from aipg.domain import Project, Topic2Project
+from aipg.rag.ports import EmbeddingPort, RetrievedItem, VectorStorePort
 
 logger = logging.getLogger(__name__)
 

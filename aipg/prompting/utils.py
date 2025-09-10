@@ -8,8 +8,8 @@ import json_repair
 import yaml
 from pydantic import ValidationError
 
-from aipg.exceptions import OutputParserException
 from aipg.domain import Project, ProjectValidationResult
+from aipg.exceptions import OutputParserException
 
 logger = logging.getLogger(__name__)
 

@@ -3,6 +3,11 @@ from typing import Any, Dict, Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel
 
+from aipg.domain import (
+    FeedbackAgentState,
+    ProcessTopicAgentState,
+    ProjectsAgentState,
+)
 from aipg.exceptions import OutputParserException
 from aipg.llm import LLMClient
 from aipg.prompting.prompt_generator import (
@@ -18,11 +23,6 @@ from aipg.prompting.prompt_generator import (
 from aipg.prompting.utils import format_project_validation_result_yaml
 from aipg.rag.service import RagService
 from aipg.sandbox.service import PythonSandboxService
-from aipg.domain import (
-    FeedbackAgentState,
-    ProcessTopicAgentState,
-    ProjectsAgentState,
-)
 
 StateT = TypeVar("StateT", bound=BaseModel)
 
@@ -436,23 +436,28 @@ class ProjectCorrectorInference(TaskInference[ProcessTopicAgentState]):
                 )
             )
         return state
-    
+
+
 class CheckAutotestSandboxInference(TaskInference[ProcessTopicAgentState]):
-    def __init__(self, llm: LLMClient, sandbox_service: PythonSandboxService, *args, **kwargs):
+    def __init__(
+        self, llm: LLMClient, sandbox_service: PythonSandboxService, *args, **kwargs
+    ):
         super().__init__(llm, *args, **kwargs)
         self.sandbox_service = sandbox_service
-        
+
     def initialize_task(self, state: ProcessTopicAgentState):
         super().initialize_task(state)
 
     async def transform(self, state: ProcessTopicAgentState) -> ProcessTopicAgentState:
         self.initialize_task(state)
         if state.project is not None:
-            code = state.project.autotest.replace("{STUDENT_SOLUTION}", state.project.expert_solution)
+            code = state.project.autotest.replace(
+                "{STUDENT_SOLUTION}", state.project.expert_solution
+            )
             result = await self.sandbox_service.run_code(code)
             state.execution_result = result
         return state
-    
+
 
 class BugFixerInference(TaskInference[ProcessTopicAgentState]):
     def initialize_task(self, state: ProcessTopicAgentState):
@@ -465,18 +470,23 @@ class BugFixerInference(TaskInference[ProcessTopicAgentState]):
             return state
 
         # Check if there are any errors to fix
-        if state.execution_result.exit_code == 0 and not state.execution_result.timed_out:
+        if (
+            state.execution_result.exit_code == 0
+            and not state.execution_result.timed_out
+        ):
             logger.info("No errors detected in execution result, skipping bug fixing")
             return state
 
         logger.info("Bug fixing initiated for project with execution errors")
-        logger.debug(f"Execution result: exit_code={state.execution_result.exit_code}, "
-                    f"timed_out={state.execution_result.timed_out}, "
-                    f"stderr={state.execution_result.stderr}")
+        logger.debug(
+            f"Execution result: exit_code={state.execution_result.exit_code}, "
+            f"timed_out={state.execution_result.timed_out}, "
+            f"stderr={state.execution_result.stderr}"
+        )
 
         self.prompt_generator = BugFixerPromptGenerator(
             project_markdown=state.project.raw_markdown,
-            sandbox_result=state.execution_result
+            sandbox_result=state.execution_result,
         )
         chat_prompt = self.prompt_generator.generate_chat_prompt()
         last_exception: OutputParserException | None = None

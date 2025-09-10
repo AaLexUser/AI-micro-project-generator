@@ -198,9 +198,7 @@ class BugFixerPromptGenerator(PromptGenerator):
 
     @property
     def system_prompt(self):
-        return self.load_from_file(
-            Path(PACKAGE_PATH) / "prompting" / "bug_fixer.md"
-        )
+        return self.load_from_file(Path(PACKAGE_PATH) / "prompting" / "bug_fixer.md")
 
     def generate_prompt(self) -> str:
         return (

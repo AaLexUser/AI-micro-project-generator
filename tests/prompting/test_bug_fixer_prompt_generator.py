@@ -11,14 +11,11 @@ class TestBugFixerPromptGenerator:
         """Test that BugFixerPromptGenerator initializes correctly."""
         project_markdown = "# Test Project\nSome content"
         sandbox_result = SandboxResult(
-            stdout="Hello World",
-            stderr="",
-            exit_code=0,
-            timed_out=False
+            stdout="Hello World", stderr="", exit_code=0, timed_out=False
         )
-        
+
         generator = BugFixerPromptGenerator(project_markdown, sandbox_result)
-        
+
         assert generator.project_markdown == project_markdown
         assert generator.sandbox_result == sandbox_result
 
@@ -29,12 +26,12 @@ class TestBugFixerPromptGenerator:
             stdout="Hello World",
             stderr="Error: something went wrong",
             exit_code=1,
-            timed_out=True
+            timed_out=True,
         )
-        
+
         generator = BugFixerPromptGenerator(project_markdown, sandbox_result)
         prompt = generator.generate_prompt()
-        
+
         assert "[Микропроект для исправления]:" in prompt
         assert "[Результаты выполнения]:" in prompt
         assert project_markdown in prompt
@@ -47,10 +44,10 @@ class TestBugFixerPromptGenerator:
         """Test that system prompt is loaded from bug_fixer.md file."""
         project_markdown = "# Test Project"
         sandbox_result = SandboxResult(stdout="", stderr="", exit_code=0)
-        
+
         generator = BugFixerPromptGenerator(project_markdown, sandbox_result)
         system_prompt = generator.system_prompt
-        
+
         # Check that the system prompt contains key elements from bug_fixer.md
         assert "ИИ-инженер по качеству" in system_prompt
         assert "анализировать и исправлять ошибки" in system_prompt
@@ -60,15 +57,11 @@ class TestBugFixerPromptGenerator:
     def test_chat_prompt_generation(self):
         """Test that generate_chat_prompt returns properly formatted chat messages."""
         project_markdown = "# Test Project"
-        sandbox_result = SandboxResult(
-            stdout="output",
-            stderr="error",
-            exit_code=1
-        )
-        
+        sandbox_result = SandboxResult(stdout="output", stderr="error", exit_code=1)
+
         generator = BugFixerPromptGenerator(project_markdown, sandbox_result)
         chat_prompt = generator.generate_chat_prompt()
-        
+
         assert len(chat_prompt) == 2
         assert chat_prompt[0]["role"] == "system"
         assert chat_prompt[1]["role"] == "user"
@@ -79,9 +72,10 @@ class TestBugFixerPromptGenerator:
         """Test that the parser is set to parse_project_markdown."""
         project_markdown = "# Test Project"
         sandbox_result = SandboxResult(stdout="", stderr="", exit_code=0)
-        
+
         generator = BugFixerPromptGenerator(project_markdown, sandbox_result)
-        
+
         # The parser should be the parse_project_markdown function
         from aipg.prompting.utils import parse_project_markdown
+
         assert generator.parser == parse_project_markdown
