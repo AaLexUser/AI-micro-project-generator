@@ -53,6 +53,7 @@ class AppConfig(BaseModel):
     task_timeout: int = 3600
     time_limit: int = 14400
     project_correction_attempts: int = 3
+    bug_fix_attempts: int = 3
     session_id: str = Field(default_factory=lambda: uuid4().hex)
     rag: RagConfig = RagConfig()
     sandbox: SandboxConfig = Field(default_factory=SandboxConfig)

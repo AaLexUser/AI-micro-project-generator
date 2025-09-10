@@ -17,7 +17,7 @@ class SandboxResult:
 
 
 class SandboxRunner(Protocol):
-    def run(
+    async def run(
         self, code: str, input_data: Optional[str], timeout_seconds: int
     ) -> SandboxResult: ...
 
@@ -26,7 +26,7 @@ class FakeRunner:
     def __init__(self, result: SandboxResult):
         self._result = result
 
-    def run(
+    async def run(
         self, code: str, input_data: Optional[str], timeout_seconds: int
     ) -> SandboxResult:
         return self._result
@@ -40,14 +40,14 @@ class FakeRunner:
         ("print('hello')", SandboxResult(stdout="hello\n", stderr="", exit_code=0)),
     ],
 )
-def test_service_returns_adapter_result_for_valid_code(code, result):
+async def test_service_returns_adapter_result_for_valid_code(code, result):
     # Arrange: service uses a mocked adapter (FakeRunner)
     from aipg.sandbox.service import PythonSandboxService
 
     service = PythonSandboxService(runner=FakeRunner(result))
 
     # Act
-    outcome = service.run_code(code)
+    outcome = await service.run_code(code)
 
     # Assert: verify meaningful outcome only (behavioral contract)
     assert isinstance(outcome.stdout, str)
@@ -58,10 +58,10 @@ def test_service_returns_adapter_result_for_valid_code(code, result):
 
 
 @pytest.mark.unit
-def test_service_raises_value_error_on_empty_code():
+async def test_service_raises_value_error_on_empty_code():
     from aipg.sandbox.service import PythonSandboxService
 
     service = PythonSandboxService(runner=FakeRunner(SandboxResult("", "", 0)))
 
     with pytest.raises(ValueError):
-        service.run_code("")
+        await service.run_code("")

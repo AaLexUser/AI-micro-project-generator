@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+import asyncio
+import contextlib
 import subprocess
 import uuid
 from typing import Optional
@@ -43,7 +45,7 @@ class DockerPythonRunner(SandboxRunner):
             self._pids_limit = pids_limit or 128
             self._default_timeout_seconds = default_timeout_seconds or 5
 
-    def run(
+    async def run(
         self, code: str, input_data: Optional[str], timeout_seconds: int
     ) -> SandboxResult:
         encoded = base64.b64encode(code.encode("utf-8")).decode("ascii")
@@ -89,28 +91,45 @@ class DockerPythonRunner(SandboxRunner):
             self._image,
         ] + shell_cmd
 
+        # Use asyncio subprocess to avoid blocking the event loop
         try:
-            completed = subprocess.run(
-                docker_cmd,
-                input=(input_data or "").encode("utf-8"),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=timeout_seconds or self._default_timeout_seconds,
-                check=False,
+            process = await asyncio.create_subprocess_exec(
+                *docker_cmd,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
+
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(input=(input_data or "").encode("utf-8")),
+                    timeout=timeout_seconds or self._default_timeout_seconds,
+                )
+                exit_code = await process.wait()
+                return SandboxResult(
+                    stdout=stdout.decode("utf-8", errors="replace"),
+                    stderr=stderr.decode("utf-8", errors="replace"),
+                    exit_code=exit_code,
+                    timed_out=False,
+                )
+            except asyncio.TimeoutError:  # pragma: no cover - depends on timing
+                with contextlib.suppress(Exception):
+                    process.kill()
+                    await process.wait()
+                self._force_remove(container_name)
+                return SandboxResult(
+                    stdout="",
+                    stderr="",
+                    exit_code=124,
+                    timed_out=True,
+                )
+        except Exception:
+            # In case docker is not available or other runtime error
             return SandboxResult(
-                stdout=completed.stdout.decode("utf-8", errors="replace"),
-                stderr=completed.stderr.decode("utf-8", errors="replace"),
-                exit_code=completed.returncode,
+                stdout="",
+                stderr="docker execution failed",
+                exit_code=1,
                 timed_out=False,
-            )
-        except subprocess.TimeoutExpired as exc:  # pragma: no cover - depends on timing
-            self._force_remove(container_name)
-            return SandboxResult(
-                stdout=(exc.stdout or b"").decode("utf-8", errors="replace"),
-                stderr=(exc.stderr or b"").decode("utf-8", errors="replace"),
-                exit_code=124,
-                timed_out=True,
             )
 
     def _force_remove(self, name: str) -> None:

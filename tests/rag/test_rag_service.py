@@ -4,7 +4,7 @@ import pytest
 
 from aipg.rag.ports import EmbeddingPort, RetrievedItem, VectorStorePort
 from aipg.rag.service import RagService
-from aipg.state import Project, Topic2Project
+from aipg.domain import Project, Topic2Project
 
 
 def create_topic2project(

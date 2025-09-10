@@ -9,7 +9,7 @@ import yaml
 from pydantic import ValidationError
 
 from aipg.exceptions import OutputParserException
-from aipg.state import Project, ProjectValidationResult
+from aipg.domain import Project, ProjectValidationResult
 
 logger = logging.getLogger(__name__)
 

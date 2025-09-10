@@ -10,6 +10,7 @@ from aipg.prompting.utils import (
     parse_project_markdown,
     parse_project_validator_yaml,
 )
+from aipg.sandbox.domain import SandboxResult
 
 
 class PromptGenerator(ABC):
@@ -183,6 +184,32 @@ class ProjectCorrectorPromptGenerator(PromptGenerator):
         return (
             f"[Исходный микропроект]:\n\n---\n\n{self.source_project}\n\n---\n\n"
             f"[Отчет валидатора]:\n\n---\n\n{self.validation_report}\n\n---"
+        )
+
+    def create_parser(self):
+        return parse_project_markdown
+
+
+class BugFixerPromptGenerator(PromptGenerator):
+    def __init__(self, project_markdown: str, sandbox_result: SandboxResult):
+        self.project_markdown = project_markdown
+        self.sandbox_result = sandbox_result
+        super().__init__()
+
+    @property
+    def system_prompt(self):
+        return self.load_from_file(
+            Path(PACKAGE_PATH) / "prompting" / "bug_fixer.md"
+        )
+
+    def generate_prompt(self) -> str:
+        return (
+            f"[Микропроект для исправления]:\n\n---\n\n{self.project_markdown}\n\n---\n\n"
+            f"[Результаты выполнения]:\n\n"
+            f"stdout:\n{self.sandbox_result.stdout}\n\n"
+            f"stderr:\n{self.sandbox_result.stderr}\n\n"
+            f"exit_code: {self.sandbox_result.exit_code}\n"
+            f"is_timed_out: {self.sandbox_result.timed_out}"
         )
 
     def create_parser(self):

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 
+from aipg.sandbox.domain import SandboxResult
 
 class ProjectValidationCheck(BaseModel):
     rule_id: str
@@ -39,6 +40,7 @@ class ProcessTopicAgentState(BaseModel):
     candidates: list[Topic2Project] = Field(default_factory=list)
     project: Project | None = Field(default=None)
     validation_result: ProjectValidationResult | None = Field(default=None)
+    execution_result: SandboxResult | None = Field(default=None)
 
 
 class FeedbackAgentState(BaseModel):

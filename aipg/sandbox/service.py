@@ -17,7 +17,7 @@ class PythonSandboxService:
         self._runner = runner
         self._default_timeout_seconds = default_timeout_seconds
 
-    def run_code(
+    async def run_code(
         self,
         code: str,
         input_data: Optional[str] = None,
@@ -32,6 +32,6 @@ class PythonSandboxService:
             else int(timeout_seconds)
         )
 
-        return self._runner.run(
+        return await self._runner.run(
             code=code, input_data=input_data, timeout_seconds=effective_timeout
         )

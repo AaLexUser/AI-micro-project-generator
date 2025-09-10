@@ -8,13 +8,15 @@ from aipg.configs.app_config import AppConfig
 from aipg.llm import LLMClient
 from aipg.rag.rag_builder import build_rag_service
 from aipg.sandbox.builder import build_sandbox_service
-from aipg.state import (
+from aipg.domain import (
     FeedbackAgentState,
     ProcessTopicAgentState,
     ProjectsAgentState,
     Topic2Project,
 )
 from aipg.task_inference import (
+    BugFixerInference,
+    CheckAutotestSandboxInference,
     DefineTopicsInference,
     FeedbackInference,
     LLMRankerInference,
@@ -77,6 +79,8 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
         project_generation_inference = ProjectGenerationInference(llm=self.llm)
         project_validator_inference = ProjectValidatorInference(llm=self.llm)
         project_corrector_inference = ProjectCorrectorInference(llm=self.llm)
+        check_autotest_inference = CheckAutotestSandboxInference(llm=self.llm, sandbox_service=self.sandbox_service)
+        bug_fixer_inference = BugFixerInference(llm=self.llm)
 
         # Run RAG service inference to get candidates
         state = await rag_inference.transform(state)
@@ -133,6 +137,36 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
                     logger.info(
                         "Project already validated successfully, skipping final validation"
                     )
+
+            # Run autotest and bug fixing if project is valid
+            if (
+                state.project
+                and state.validation_result
+                and state.validation_result.is_valid
+            ):
+                logger.info("Project is valid, running autotest and bug fixing")
+                
+                # Run autotest to check for bugs
+                state = await check_autotest_inference.transform(state)
+                
+                # Try to fix bugs if any are found
+                for attempt in range(1, self.config.bug_fix_attempts + 1):
+                    if state.execution_result and (state.execution_result.exit_code != 0 or state.execution_result.timed_out):
+                        logger.info(f"Bugs detected, running bug fixer attempt {attempt}/{self.config.bug_fix_attempts}")
+                        state = await bug_fixer_inference.transform(state)
+                        
+                        # Re-run autotest to check if bugs are fixed
+                        state = await check_autotest_inference.transform(state)
+                        
+                        # If no more bugs, break out of the loop
+                        if state.execution_result and state.execution_result.exit_code == 0 and not state.execution_result.timed_out:
+                            logger.info("All bugs fixed successfully")
+                            break
+                    else:
+                        logger.info("No bugs detected, skipping bug fixing")
+                        break
+                else:
+                    logger.warning(f"Could not fix all bugs after {self.config.bug_fix_attempts} attempts")
 
             # Only save if project is present and validation passed
             if (

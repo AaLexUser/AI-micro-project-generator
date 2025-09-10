@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from aipg.assistant import FeedbackAssistant, ProjectAssistant
 from aipg.configs.app_config import AppConfig
 from aipg.configs.loader import load_config
-from aipg.state import FeedbackAgentState, Project, ProjectsAgentState
+from aipg.domain import FeedbackAgentState, Project, ProjectsAgentState
 
 logger = logging.getLogger(__name__)
 
