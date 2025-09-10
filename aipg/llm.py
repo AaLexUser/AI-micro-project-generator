@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Any, Dict, List, TypeVar
 
+import httpx
 import litellm
 from litellm.caching.caching import Cache, LiteLLMCacheType
 from pydantic import BaseModel
@@ -45,6 +46,7 @@ class LLMClient:
             "metadata": {"session_id": config.session_id},
             **self.config.llm.completion_params,
         }
+        self.completion_params.setdefault("timeout", 60)
 
         if config.llm.caching.enabled:
             litellm.cache = Cache(
@@ -54,25 +56,27 @@ class LLMClient:
     @retry(
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=1, min=4, max=10),
-        retry=retry_if_exception(
-            lambda e: getattr(e, "status_code", None)
-            in {408, 409, 429, 500, 502, 503, 504}
-            or isinstance(e, (TimeoutError, ConnectionError))
+        retry=(
+            retry_if_exception(
+                lambda e: getattr(e, "status_code", None)
+                in {408, 409, 429, 500, 502, 503, 504}
+            )
+            | retry_if_exception(lambda e: isinstance(e, (TimeoutError, ConnectionError, httpx.TimeoutException, httpx.ConnectError)))
         ),
         reraise=True,
     )
-    def query(self, messages: str | List[Dict[str, Any]]) -> str | None:
+    async def query(self, messages: str | List[Dict[str, Any]]) -> str | None:
         messages = (
             [{"role": "user", "content": messages}]
             if isinstance(messages, str)
             else messages
         )
         logger.debug("Sending messages to LLM: %s", messages)
-        response = litellm.completion(
+        response = await litellm.acompletion(
             messages=messages,
             **self.completion_params,
         )
-        logger.debug(
-            "Received response from LLM: %s", response.choices[0].message.content
-        )
-        return response.choices[0].message.content
+        choices = getattr(response, "choices", []) or []
+        content = getattr(choices[0].message, "content", None) if choices and getattr(choices[0], "message", None) else None
+        logger.debug("Received response from LLM: %s", content)
+        return content
