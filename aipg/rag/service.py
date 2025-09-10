@@ -13,6 +13,17 @@ class RagService:
         k_candidates: int = 5,
         ranker: Optional[Callable[[str, List[str]], List[float]]] = None,
     ) -> None:
+        """
+        Initialize the RagService.
+        
+        Parameters:
+            similarity_threshold (float): Minimum acceptable similarity score in [0, 1] required to accept a retrieved candidate.
+            k_candidates (int): Number of nearest neighbors to request from the vector store when querying.
+            ranker (Optional[Callable[[str, List[str]], List[float]]]): Optional ranking function that takes the query topic and a list of candidate topic strings and returns a list of scores (one per candidate). Required at retrieval time if any candidates are returned.
+        
+        Raises:
+            ValueError: If `similarity_threshold` is not in [0, 1] or if `k_candidates` is not positive.
+        """
         self.embedder = embedder
         self.vector_store = vector_store
         self.similarity_threshold = similarity_threshold
@@ -26,8 +37,15 @@ class RagService:
 
     def try_to_get(self, topic: str) -> Optional[Topic2Project]:
         """
-        Try to retrieve a micro project for the given topic.
-        Returns Topic2Project if found, None if not found.
+        Attempt to find a matching Topic2Project for the given topic using embeddings and candidate ranking.
+        
+        Generates an embedding for `topic`, queries the vector store for up to `k_candidates` nearest entries, and—if any candidates are returned—requires a configured ranker to score those candidate topics. The highest-scoring candidate is returned as a Topic2Project when its score is >= the service's similarity_threshold; otherwise the method returns None.
+        
+        Raises:
+            RuntimeError: If the vector store returns one or more candidates but no ranker is configured.
+        
+        Returns:
+            Optional[Topic2Project]: The best-matching Topic2Project when a candidate meets the similarity threshold, or None if no suitable match is found.
         """
         topic_embedding = self.embedder.embedding_processor([topic])[0]
         candidates: List[RetrievedItem] = self.vector_store.query(
@@ -49,6 +67,15 @@ class RagService:
         return None
 
     def save(self, topic: str, micro_project: Project) -> None:
+        """
+        Save a topic → micro-project mapping in the vector store using the topic's embedding.
+        
+        Computes an embedding for the provided topic and indexes it into the configured vector store. The stored entry uses the topic string as the id and includes metadata containing the original topic and the associated micro_project object.
+        
+        Parameters:
+            topic (str): The topic text to embed and index.
+            micro_project (Project): The micro-project to associate with the topic; stored verbatim in the entry metadata.
+        """
         topic_embedding = self.embedder.embedding_processor([topic])[0]
         self.vector_store.add(
             ids=[topic],

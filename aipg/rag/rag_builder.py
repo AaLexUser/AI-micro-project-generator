@@ -8,6 +8,21 @@ from .service import RagService
 
 
 def build_rag_service(config: AppConfig, llm: LLMClient) -> RagService:
+    """
+    Build and return a configured RagService using the provided application config and LLM client.
+    
+    Constructs a Chroma vector store, a Gemini embedding adapter, and an LLM-based ranker from values found in config.rag with sensible defaults:
+    - similarity_threshold: 0.7
+    - k_candidates: 5
+    - collection_name: "micro_projects"
+    - chroma_path: None
+    - embedding_model: "gemini-embedding-001"
+    
+    For embedding connection settings, uses rag.embedding_base_url or falls back to config.llm.base_url, and uses rag.embedding_api_key or falls back to config.llm.api_key.
+    
+    Returns:
+        RagService: A service instance wired with the created embedder, vector store, ranker, similarity threshold, and candidate count.
+    """
     rag = getattr(config, "rag", None)
     similarity_threshold = getattr(rag, "similarity_threshold", 0.7)
     k_candidates = getattr(rag, "k_candidates", 5)

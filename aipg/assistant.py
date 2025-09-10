@@ -24,6 +24,30 @@ logger = logging.getLogger(__name__)
 
 @contextmanager
 def timeout(seconds: int, error_message: Optional[str] = None):
+    """
+    Context manager that raises TimeoutError if the block does not complete within `seconds`.
+    
+    On Unix-like systems this uses SIGALRM to deliver a TimeoutError (the provided
+    `error_message` is used as the exception message). Because SIGALRM is a
+    process-wide signal, this implementation must be entered from the main thread
+    and restores the previous SIGALRM handler on exit.
+    
+    On Windows this uses a background timer and CPython's internal
+    PyThreadState_SetAsyncExc to asynchronously raise a bare `TimeoutError` in the
+    current thread when the timer fires. Windows cannot attach a custom message to
+    the injected exception; only a plain TimeoutError is raised. The timer is
+    cancelled when the context exits.
+    
+    Parameters:
+        seconds (int): Number of seconds to wait before raising TimeoutError.
+        error_message (Optional[str]): Message used for the TimeoutError on Unix;
+            ignored on Windows.
+    
+    Raises:
+        RuntimeError: if invoked from a non-main thread on platforms that use SIGALRM.
+        TimeoutError: when the timeout expires (raised asynchronously inside the
+            managed block).
+    """
     if sys.platform == "win32":
         # Windows implementation using threading + async exception injection
         # Note: This uses CPython internals to raise an exception in the current thread.
@@ -81,6 +105,12 @@ def timeout(seconds: int, error_message: Optional[str] = None):
 
 class BaseAssistant[StateT]:
     def __init__(self, config: AppConfig) -> None:
+        """
+        Initialize the assistant with the given application configuration.
+        
+        Parameters:
+            config (AppConfig): Application configuration used to configure the assistant and to instantiate its LLM client.
+        """
         self.config = config
         self.llm = LLMClient(config)
 
@@ -107,6 +137,17 @@ class BaseAssistant[StateT]:
 
 class ProjectAssistant(BaseAssistant[ProjectAgentState]):
     def execute(self, state: ProjectAgentState) -> ProjectAgentState:
+        """
+        Execute the project assistant pipeline to transform a ProjectAgentState.
+        
+        Runs the DefineTopicsInference followed by ProjectGenerationInference (in that order), applying each inference to the provided state and returning the resulting ProjectAgentState.
+        
+        Parameters:
+            state (ProjectAgentState): Current project agent state to be transformed by the inference pipeline.
+        
+        Returns:
+            ProjectAgentState: Updated state after all inferences have been applied.
+        """
         task_inferences: List[Type[TaskInference[ProjectAgentState]]] = [
             DefineTopicsInference,
             ProjectGenerationInference,

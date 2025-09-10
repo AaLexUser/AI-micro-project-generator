@@ -9,14 +9,39 @@ from aipg.state import Project, Topic2Project
 
 class DummyEmbedder(EmbeddingPort):
     def __init__(self, vector: Optional[List[float]] = None) -> None:
+        """
+        Initialize the dummy embedder.
+        
+        Parameters:
+            vector (Optional[List[float]]): Fixed embedding vector to return for any input; if None, defaults to [1.0, 0.0, 0.0].
+        """
         self.vector = vector or [1.0, 0.0, 0.0]
 
     def embedding_processor(self, texts: List[str]) -> List[List[float]]:
+        """
+        Return the stored embedding vector for each input text.
+        
+        Parameters:
+            texts (List[str]): Input texts to embed.
+        
+        Returns:
+            List[List[float]]: A list with one embedding (the stored vector) per input text, preserving input order.
+        """
         return [self.vector for _ in texts]
 
 
 class DummyVectorStore(VectorStorePort):
     def __init__(self, candidates: Optional[List[RetrievedItem]] = None) -> None:
+        """
+        Initialize the dummy vector store.
+        
+        Parameters:
+            candidates (Optional[List[RetrievedItem]]): Optional initial list of candidates returned by query(); defaults to an empty list.
+        
+        Notes:
+            - add_calls is initialized as an empty list and is appended with call details by add().
+            - _candidates is used by query() to return the first k candidates.
+        """
         self._candidates = candidates or []
         self.add_calls: List[dict] = []
 
@@ -27,9 +52,34 @@ class DummyVectorStore(VectorStorePort):
         metadatas: List[dict],
     ) -> None:
         # Record call for potential debugging; test assertions avoid relying on this.
+        """
+        Record an add operation by appending its arguments to self.add_calls.
+        
+        This stores a dict with keys "ids", "embeddings", and "metadatas" (values are the corresponding arguments)
+        so tests can inspect what was passed to add. The three lists are expected to be parallel (same length),
+        but this method does not validate their contents.
+        
+        Parameters:
+            ids (List[str]): Identifiers for the items being added.
+            embeddings (List[List[float]]): Embedding vectors corresponding to each id.
+            metadatas (List[dict]): Metadata objects corresponding to each id.
+        """
         self.add_calls.append({"ids": ids, "embeddings": embeddings, "metadatas": metadatas})
 
     def query(self, embedding: List[float], k: int) -> List[RetrievedItem]:
+        """
+        Return the first k stored RetrievedItem candidates.
+        
+        This dummy implementation ignores the provided embedding and simply returns up to k items
+        from the internal candidate list in their stored order.
+        
+        Parameters:
+            embedding (List[float]): Embedding vector (ignored by this implementation).
+            k (int): Maximum number of candidates to return.
+        
+        Returns:
+            List[RetrievedItem]: Up to k candidates from the internal store.
+        """
         return self._candidates[:k]
 
 
@@ -78,6 +128,12 @@ def test_try_to_get_main_paths(
     vector_store = DummyVectorStore(candidates=candidates)
 
     def ranker(_query: str, _cands: List[str]) -> List[float]:
+        """
+        Return a list of predefined similarity scores for a candidate list.
+        
+        This test helper ignores its inputs and returns the outer-scope `scores` sequence as a list.
+        The returned list of floats corresponds positionally to the provided candidates.
+        """
         return list(scores)
 
     service = RagService(

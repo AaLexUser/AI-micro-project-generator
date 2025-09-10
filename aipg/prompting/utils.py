@@ -475,12 +475,38 @@ def _parse_topic_from_h1(header_text: str) -> Optional[str]:
 
 def parse_project_markdown(raw_markdown: str) -> Project:
     """
-    Parse a project markdown document into a Project model.
-
-    Fast path notes:
-    - Pre-strips an outer ```markdown fenced block to allow header scanning.
-    - Single pass header parsing using parse_markdown_headers (ignores code fences correctly).
-    - Uses optimized code/expected extractors.
+    Parse a project Markdown document (template) into a Project model.
+    
+    Processes a Markdown template that must include an H1 of the form
+    "# Микропроект для углубления темы: <Тема>" and the following sections (in Russian):
+    "Цель микропроекта", "Описание микропроекта", "Входные данные",
+    "Ожидаемый результат", "Эталонное решение", and "Автотест".
+    
+    Detailed behavior:
+    - If the entire input is wrapped in a top-level ```markdown (or ```md) fenced block,
+      that outer block is unwrapped before parsing.
+    - Leading conversational text is stripped by locating the first H1 that
+      starts with "# Микропроект для углубления темы:" and returning content from there.
+    - Headers and their contents are extracted (ignoring fenced code blocks) and
+      matched against the required template section names (exact match preferred,
+      falls back to startswith on normalized headers).
+    - "Ожидаемый результат" is processed with extract_expected_output to produce
+      the expected_output field.
+    - "Эталонное решение" must contain at least one fenced code block; the first
+      fenced block's inner content is used as expert_solution.
+    - "Автотест" must contain a fenced Python code block (language "python" or "py");
+      the first such block's inner content is used as autotest.
+    
+    Returns:
+        Project: A Project instance populated with raw_markdown (preprocessed),
+                 topic, goal, description, input_data, expected_output,
+                 expert_solution, and autotest.
+    
+    Raises:
+        OutputParserException: If the input is empty, required headers are missing,
+                               the H1 topic cannot be parsed, required sections
+                               are absent, a required fenced code block is missing,
+                               or the autotest block is not a Python fenced code block.
     """
     if not raw_markdown or not raw_markdown.strip():
         raise OutputParserException(
@@ -536,7 +562,11 @@ def parse_project_markdown(raw_markdown: str) -> Project:
         return inner
 
     def _strip_conversational_text(text: str) -> str:
-        """Remove any conversational text before the actual markdown content."""
+        """
+        Return the input starting from the first Markdown H1 header "# Микропроект для углубления темы:".
+        
+        Scans the input text line-by-line for the first line that, after stripping leading/trailing whitespace, starts with the exact header "# Микропроект для углубления темы:". If found, returns the substring composed of that line and all following lines. If the header is not found or the input is empty, returns the original input unchanged.
+        """
         if not text:
             return text
 
