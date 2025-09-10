@@ -1,10 +1,6 @@
 import asyncio
 import logging
-import signal
-import sys
-import threading
-from contextlib import contextmanager
-from typing import Generic, List, Optional, Type, TypeVar
+from typing import Generic, List, Type, TypeVar
 
 from pydantic import BaseModel
 
@@ -29,63 +25,6 @@ from aipg.task_inference import (
 StateT = TypeVar("StateT", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
-
-
-@contextmanager
-def timeout(seconds: int, error_message: Optional[str] = None):
-    if sys.platform == "win32":
-        # Windows implementation using threading + async exception injection
-        # Note: This uses CPython internals to raise an exception in the current thread.
-        # It is a pragmatic solution because Windows lacks SIGALRM.
-        import ctypes
-
-        current_thread_id = threading.get_ident()
-
-        # Configure CPython API call for safety
-        _set_async_exc = ctypes.pythonapi.PyThreadState_SetAsyncExc
-        _set_async_exc.argtypes = [ctypes.c_long, ctypes.py_object]
-        _set_async_exc.restype = ctypes.c_int
-
-        def _raise_timeout_in_thread():
-            # Raises TimeoutError in the target thread asynchronously.
-            # The message cannot be passed directly; raising bare TimeoutError instead.
-            res = _set_async_exc(
-                ctypes.c_long(current_thread_id), ctypes.py_object(TimeoutError)
-            )
-            if res == 0:
-                logger.warning(
-                    "timeout: failed to deliver TimeoutError to thread %s",
-                    current_thread_id,
-                )
-            elif res > 1:
-                # Revert per CPython docs
-                _set_async_exc(ctypes.c_long(current_thread_id), None)
-                logger.error(
-                    "timeout: PyThreadState_SetAsyncExc affected multiple threads; reverted"
-                )
-
-        timer = threading.Timer(seconds, _raise_timeout_in_thread)
-        timer.daemon = True
-        timer.start()
-        try:
-            yield
-        finally:
-            timer.cancel()
-    else:
-        # Unix implementation using SIGALRM
-        def handle_timeout(signum, frame):
-            raise TimeoutError(error_message)
-
-        if threading.current_thread() is not threading.main_thread():
-            raise RuntimeError("timeout(SIGALRM) must be used from the main thread")
-        previous = signal.getsignal(signal.SIGALRM)
-        signal.signal(signal.SIGALRM, handle_timeout)
-        signal.alarm(seconds)
-        try:
-            yield
-        finally:
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, previous)
 
 
 class BaseAssistant(Generic[StateT]):
