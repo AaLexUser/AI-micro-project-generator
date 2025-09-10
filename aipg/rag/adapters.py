@@ -2,6 +2,7 @@ import logging
 from typing import List, Mapping, Optional, Sequence, Union, cast
 
 from aipg.exceptions import OutputParserException
+from aipg.prompting.utils import parse_project_markdown
 from aipg.rag.ports import EmbeddingPort, RetrievedItem, VectorStorePort
 
 try:
@@ -153,8 +154,6 @@ class ChromaDbAdapter(VectorStorePort):
                 # Parse raw markdown to reconstruct Project
                 if project_md and isinstance(project_md, str):
                     try:
-                        from aipg.prompting.utils import parse_project_markdown
-
                         micro_project = parse_project_markdown(project_md)
                     except OutputParserException as e:
                         # Skip items that can't be parsed

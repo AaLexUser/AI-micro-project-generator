@@ -97,7 +97,7 @@ class BaseAssistant(Generic[StateT]):
         raise Exception(f"{stage}: {exception}")
 
     async def _run_task_inference(
-        self, task_inferences: List[Type[TaskInference]], state: StateT
+        self, task_inferences: List[Type[TaskInference[StateT]]], state: StateT
     ) -> StateT:
         for inference_class in task_inferences:
             logger.debug("Running task inference: %s", inference_class.__name__)
@@ -105,9 +105,8 @@ class BaseAssistant(Generic[StateT]):
             try:
                 state = await inference.transform(state)
             except Exception as e:
-                self.handle_exception(
-                    f"Task inference preprocessing: {inference_class}", e
-                )
+                logger.exception("Task inference failed: %s", inference_class.__name__)
+                self.handle_exception(f"Task inference preprocessing: {inference_class}", e)
         return state
 
     async def execute(self, state: StateT) -> StateT:

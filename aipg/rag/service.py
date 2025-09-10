@@ -1,5 +1,5 @@
-import hashlib
 import logging
+import uuid
 from typing import List
 
 from aipg.rag.ports import EmbeddingPort, RetrievedItem, VectorStorePort
@@ -20,7 +20,7 @@ class RagService:
         self.k_candidates = k_candidates
 
         if k_candidates <= 0:
-            raise ValueError("k_candidates must be positive")
+            raise ValueError("k_candidates must be positive (got %d)" % k_candidates)
 
     async def try_to_get(self, topic: str) -> List[Topic2Project]:
         """
@@ -83,8 +83,8 @@ class RagService:
 
         # Generate deterministic unique ID from topic and raw_markdown
         content_for_hash = f"{topic}:{raw_markdown}"
-        deterministic_id = hashlib.sha1(content_for_hash.encode("utf-8")).hexdigest()
-        logger.debug(f"Generated deterministic ID: {deterministic_id}")
+        deterministic_id = uuid.uuid5(uuid.NAMESPACE_URL, content_for_hash).hex
+        logger.debug("Generated deterministic ID: %s", deterministic_id)
 
         await self.vector_store.add(
             ids=[deterministic_id],
