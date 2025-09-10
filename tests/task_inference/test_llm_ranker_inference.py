@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -33,7 +33,8 @@ from aipg.task_inference.task_inference import LLMRankerInference
         ("low similarity", ["candidate1", "candidate2"], ["[0.5, 0.6]"], None, 0.7),
     ],
 )
-def test_llm_ranker_inference_success(
+@pytest.mark.asyncio
+async def test_llm_ranker_inference_success(
     topic: str,
     candidates: list[str],
     llm_responses: list[str],
@@ -41,7 +42,7 @@ def test_llm_ranker_inference_success(
     similarity_threshold: float,
 ) -> None:
     """Test that LLMRankerInference successfully ranks candidates and selects best one."""
-    mock_llm = Mock()
+    mock_llm = AsyncMock()
     mock_llm.query.side_effect = llm_responses
 
     # Create Topic2Project objects for candidates
@@ -53,7 +54,7 @@ def test_llm_ranker_inference_success(
         llm=mock_llm, similarity_threshold=similarity_threshold
     )
 
-    result = inference.transform(state)
+    result = await inference.transform(state)
 
     assert result.candidates == topic2project_candidates
 
@@ -69,9 +70,10 @@ def test_llm_ranker_inference_success(
 
 
 @pytest.mark.unit
-def test_llm_ranker_inference_wrong_number_of_scores() -> None:
+@pytest.mark.asyncio
+async def test_llm_ranker_inference_wrong_number_of_scores() -> None:
     """Test that LLMRankerInference handles wrong number of scores correctly."""
-    mock_llm = Mock()
+    mock_llm = AsyncMock()
     mock_llm.query.side_effect = [
         "[0.8, 0.9, 0.7]",  # 3 scores for 2 candidates
         "[0.8, 0.9]",  # Correct number of scores
@@ -81,7 +83,7 @@ def test_llm_ranker_inference_wrong_number_of_scores() -> None:
     state = ProcessTopicAgentState(topic="test query", candidates=candidates)
     inference = LLMRankerInference(llm=mock_llm, similarity_threshold=0.7)
 
-    result = inference.transform(state)
+    result = await inference.transform(state)
 
     assert result.topic == "candidate2"
     assert result.project == candidates[1].project
@@ -89,9 +91,10 @@ def test_llm_ranker_inference_wrong_number_of_scores() -> None:
 
 
 @pytest.mark.unit
-def test_llm_ranker_inference_max_retries_exceeded() -> None:
+@pytest.mark.asyncio
+async def test_llm_ranker_inference_max_retries_exceeded() -> None:
     """Test that LLMRankerInference raises exception after max retries."""
-    mock_llm = Mock()
+    mock_llm = AsyncMock()
     mock_llm.query.return_value = "invalid response"
 
     candidates = [Topic2Project(topic="candidate1"), Topic2Project(topic="candidate2")]
@@ -99,22 +102,23 @@ def test_llm_ranker_inference_max_retries_exceeded() -> None:
     inference = LLMRankerInference(llm=mock_llm, similarity_threshold=0.7)
 
     with pytest.raises(OutputParserException):
-        inference.transform(state)
+        await inference.transform(state)
 
     # Should have tried 3 times
     assert mock_llm.query.call_count == 3
 
 
 @pytest.mark.unit
-def test_llm_ranker_inference_empty_candidates() -> None:
+@pytest.mark.asyncio
+async def test_llm_ranker_inference_empty_candidates() -> None:
     """Test that LLMRankerInference handles empty candidates list."""
-    mock_llm = Mock()
+    mock_llm = AsyncMock()
     mock_llm.query.return_value = "[]"
 
     state = ProcessTopicAgentState(topic="test query", candidates=[])
     inference = LLMRankerInference(llm=mock_llm, similarity_threshold=0.7)
 
-    result = inference.transform(state)
+    result = await inference.transform(state)
 
     assert result.project is None
     assert result.topic == "test query"

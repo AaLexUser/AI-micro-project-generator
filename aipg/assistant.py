@@ -96,14 +96,14 @@ class BaseAssistant(Generic[StateT]):
     def handle_exception(self, stage: str, exception: Exception):
         raise Exception(f"{stage}: {exception}")
 
-    def _run_task_inference(
+    async def _run_task_inference(
         self, task_inferences: List[Type[TaskInference]], state: StateT
     ) -> StateT:
         for inference_class in task_inferences:
             logger.debug("Running task inference: %s", inference_class.__name__)
             inference = inference_class(llm=self.llm)
             try:
-                state = inference.transform(state)
+                state = await inference.transform(state)
             except Exception as e:
                 self.handle_exception(
                     f"Task inference preprocessing: {inference_class}", e
@@ -131,14 +131,14 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
         project_generation_inference = ProjectGenerationInference(llm=self.llm)
 
         # Run RAG service inference to get candidates
-        state = rag_inference.transform(state)
+        state = await rag_inference.transform(state)
 
         # If we have candidates, run LLM ranking
         if state.candidates:
-            state = llm_ranker_inference.transform(state)
+            state = await llm_ranker_inference.transform(state)
 
         if not state.project:
-            state = project_generation_inference.transform(state)
+            state = await project_generation_inference.transform(state)
             if state.project:
                 self.rag_service.save(state.topic, state.project)
 
@@ -149,7 +149,7 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
             DefineTopicsInference,
         ]
 
-        state = self._run_task_inference(task_inferences, state)
+        state = await self._run_task_inference(task_inferences, state)
 
         # Run parallel processing of each topic
         if state.topics:
@@ -191,4 +191,4 @@ class FeedbackAssistant(BaseAssistant[FeedbackAgentState]):
         task_inferences: List[Type[TaskInference[FeedbackAgentState]]] = [
             FeedbackInference,
         ]
-        return self._run_task_inference(task_inferences, state)
+        return await self._run_task_inference(task_inferences, state)

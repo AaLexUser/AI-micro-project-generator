@@ -1,7 +1,5 @@
 import logging
-from typing import List, Mapping, Optional, Sequence, Union
-
-from google.genai import Client
+from typing import List, Mapping, Optional, Sequence, Union, cast
 
 from aipg.exceptions import OutputParserException
 from aipg.rag.ports import EmbeddingPort, RetrievedItem, VectorStorePort
@@ -13,6 +11,7 @@ except ImportError:
 
 try:
     from google import genai
+    from google.genai import Client
 except ImportError:
     genai = None  # type: ignore
 
@@ -87,7 +86,7 @@ class GeminiEmbeddingAdapter(EmbeddingPort):
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         model_name: str = "gemini-embedding-001",
-        client: Optional[Client] = None,
+        client: Optional[object] = None,
     ) -> None:
         if client is not None:
             self.client = client
@@ -101,6 +100,10 @@ class GeminiEmbeddingAdapter(EmbeddingPort):
     def embedding_processor(self, texts: List[str]) -> List[List[float]]:
         if not texts:
             return []
+        if genai is None:
+            raise ImportError("Genai not available")
+        self.client = cast(Client, self.client)
+            
         result = self.client.models.embed_content(model=self.model_name, contents=texts)
         if not result.embeddings:
             return []

@@ -51,9 +51,9 @@ class TaskInference(Generic[StateT]):
 
         logger.info(f"{bold_start}{prefix}{bold_end}: {value_str}")
 
-    def transform(self, state: StateT) -> StateT:
+    async def transform(self, state: StateT) -> StateT:
         self.initialize_task(state)
-        parser_output = self._chat_and_parse_prompt_output()
+        parser_output = await self._chat_and_parse_prompt_output()
         for k, v in parser_output.items():
             if v in self.ignored_value:
                 v = None
@@ -64,14 +64,14 @@ class TaskInference(Generic[StateT]):
     def post_process(self, state, value):
         return value
 
-    def _chat_and_parse_prompt_output(self) -> Dict[str, Optional[str]]:
+    async def _chat_and_parse_prompt_output(self) -> Dict[str, Optional[str]]:
         try:
             assert self.prompt_generator is not None, (
                 "prompt_generator is not initialized"
             )
             chat_prompt = self.prompt_generator.generate_chat_prompt()
             logger.debug(f"LLM chat_prompt:\n{chat_prompt}")
-            output = self.llm.query(chat_prompt)
+            output = await self.llm.query(chat_prompt)
             logger.debug(f"LLM output:\n{output}")
             parsed_output = self.prompt_generator.parser(
                 output,
@@ -88,14 +88,14 @@ class DefineTopicsInference(TaskInference[ProjectsAgentState]):
     def initialize_task(self, state: ProjectsAgentState):
         super().initialize_task(state)
 
-    def transform(self, state: ProjectsAgentState) -> ProjectsAgentState:
+    async def transform(self, state: ProjectsAgentState) -> ProjectsAgentState:
         self.initialize_task(state)
         comments = state.comments
         self.prompt_generator = DefineTopicsPromptGenerator(comments=comments)
         chat_prompt = self.prompt_generator.generate_chat_prompt()
         last_exception: OutputParserException | None = None
         for attempt in range(1, 4):
-            response = self.llm.query(chat_prompt)
+            response = await self.llm.query(chat_prompt)
             try:
                 topics = self.prompt_generator.parser(response)
                 break
@@ -129,14 +129,14 @@ class ProjectGenerationInference(TaskInference[ProcessTopicAgentState]):
     def initialize_task(self, state: ProcessTopicAgentState):
         super().initialize_task(state)
 
-    def transform(self, state: ProcessTopicAgentState) -> ProcessTopicAgentState:
+    async def transform(self, state: ProcessTopicAgentState) -> ProcessTopicAgentState:
         self.initialize_task(state)
         if state.project is None:
             self.prompt_generator = ProjectGenerationPromptGenerator(topic=state.topic)
             chat_prompt = self.prompt_generator.generate_chat_prompt()
             last_exception: OutputParserException | None = None
             for attempt in range(1, 4):
-                response = self.llm.query(chat_prompt)
+                response = await self.llm.query(chat_prompt)
                 try:
                     state.project = self.prompt_generator.parser(response)
                     break
@@ -175,7 +175,7 @@ class FeedbackInference(TaskInference[FeedbackAgentState]):
     def initialize_task(self, state: FeedbackAgentState):
         super().initialize_task(state)
 
-    def transform(self, state: FeedbackAgentState) -> FeedbackAgentState:
+    async def transform(self, state: FeedbackAgentState) -> FeedbackAgentState:
         self.initialize_task(state)
         self.prompt_generator = FeedbackPromptGenerator(
             user_solution=state.user_solution,
@@ -185,7 +185,7 @@ class FeedbackInference(TaskInference[FeedbackAgentState]):
             project_output=state.project.expected_output,
         )
         chat_prompt = self.prompt_generator.generate_chat_prompt()
-        response = self.llm.query(chat_prompt)
+        response = await self.llm.query(chat_prompt)
         feedback = self.prompt_generator.parser(response)
         state.feedback = feedback
         return state
@@ -201,7 +201,7 @@ class LLMRankerInference(TaskInference[ProcessTopicAgentState]):
     def initialize_task(self, state: ProcessTopicAgentState):
         super().initialize_task(state)
 
-    def transform(self, state: ProcessTopicAgentState) -> ProcessTopicAgentState:
+    async def transform(self, state: ProcessTopicAgentState) -> ProcessTopicAgentState:
         self.initialize_task(state)
         # Extract topic strings from Topic2Project objects
         candidate_topics = [candidate.topic for candidate in state.candidates]
@@ -217,7 +217,7 @@ class LLMRankerInference(TaskInference[ProcessTopicAgentState]):
         last_exception: OutputParserException | None = None
         for attempt in range(1, 4):
             logger.debug(f"LLM Ranking attempt {attempt}/3 for topic '{state.topic}'")
-            response = self.llm.query(chat_prompt)
+            response = await self.llm.query(chat_prompt)
             try:
                 scores = self.prompt_generator.parser(response)
                 logger.debug(f"Parsed scores: {scores}")
@@ -296,7 +296,7 @@ class RAGServiceInference(TaskInference[ProcessTopicAgentState]):
     def initialize_task(self, state: ProcessTopicAgentState):
         super().initialize_task(state)
 
-    def transform(self, state: ProcessTopicAgentState) -> ProcessTopicAgentState:
+    async def transform(self, state: ProcessTopicAgentState) -> ProcessTopicAgentState:
         self.initialize_task(state)
         # Search for candidates using the RAG service
         logger.info(f"RAG Service Inference initiated for topic: '{state.topic}'")

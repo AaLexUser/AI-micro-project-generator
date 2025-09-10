@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from typing import List
 
@@ -68,8 +69,13 @@ class RagService:
             f"Storing raw markdown for topic '{topic}' (length: {len(raw_markdown)} chars)"
         )
 
+        # Generate deterministic unique ID from topic and raw_markdown
+        content_for_hash = f"{topic}:{raw_markdown}"
+        deterministic_id = hashlib.sha1(content_for_hash.encode("utf-8")).hexdigest()
+        logger.debug(f"Generated deterministic ID: {deterministic_id}")
+
         self.vector_store.add(
-            ids=[topic],
+            ids=[deterministic_id],
             embeddings=[topic_embedding],
             metadatas=[{"topic": topic, "project_md": raw_markdown}],
         )

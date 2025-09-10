@@ -61,14 +61,14 @@ class LLMClient:
         ),
         reraise=True,
     )
-    def query(self, messages: str | List[Dict[str, Any]]) -> str | None:
+    async def query(self, messages: str | List[Dict[str, Any]]) -> str | None:
         messages = (
             [{"role": "user", "content": messages}]
             if isinstance(messages, str)
             else messages
         )
         logger.debug("Sending messages to LLM: %s", messages)
-        response = litellm.completion(
+        response = await litellm.acompletion(
             messages=messages,
             **self.completion_params,
         )
