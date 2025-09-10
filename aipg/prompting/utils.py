@@ -535,7 +535,23 @@ def parse_project_markdown(raw_markdown: str) -> Project:
         inner = "\n".join(lines[start + 1 : end])
         return inner
 
+    def _strip_conversational_text(text: str) -> str:
+        """Remove any conversational text before the actual markdown content."""
+        if not text:
+            return text
+        
+        lines = text.splitlines()
+        # Look for the first line that starts with "# Микропроект для углубления темы:"
+        for i, line in enumerate(lines):
+            if line.strip().startswith("# Микропроект для углубления темы:"):
+                # Return everything from this line onwards
+                return "\n".join(lines[i:])
+        
+        # If no such header found, return original text
+        return text
+
     preprocessed = _unwrap_outer_markdown_block(raw_markdown)
+    preprocessed = _strip_conversational_text(preprocessed)
 
     sections = parse_markdown_headers(preprocessed)
     if not sections:

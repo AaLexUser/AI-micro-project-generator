@@ -200,6 +200,7 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+.cursor/
 
 # MacOS
 .DS_Store
@@ -212,3 +213,7 @@ __marimo__/
 # Project-specific files
 aipg/configs/default.yaml
 aipg/cache/
+
+Node Modules
+node_modules/
+

@@ -3,16 +3,20 @@ import signal
 import sys
 import threading
 from contextlib import contextmanager
-from typing import List, Optional, Type
+from typing import List, Optional, Type, TypeVar
 
 from aipg.configs.app_config import AppConfig
 from aipg.llm import LLMClient
-from aipg.state import AgentState
+from aipg.state import FeedbackAgentState, ProjectAgentState
 from aipg.task_inference import (
     DefineTopicsInference,
+    FeedbackInference,
     ProjectGenerationInference,
     TaskInference,
 )
+from pydantic import BaseModel
+
+StateT = TypeVar("StateT", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +76,9 @@ def timeout(seconds: int, error_message: Optional[str] = None):
         finally:
             signal.alarm(0)
             signal.signal(signal.SIGALRM, previous)
-
-
-class Assistant:
+            
+            
+class BaseAssistant[StateT]:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
         self.llm = LLMClient(config)
@@ -83,27 +87,40 @@ class Assistant:
         raise Exception(f"{stage}: {exception}")
 
     def _run_task_inference(
-        self, task_inferences: List[Type[TaskInference]], state: AgentState
-    ) -> AgentState:
+        self, task_inferences: List[Type[TaskInference]], state: StateT
+    ) -> StateT:
         for inference_class in task_inferences:
             logger.debug("Running task inference: %s", inference_class.__name__)
             inference = inference_class(llm=self.llm)
             try:
-                with timeout(
-                    seconds=self.config.task_timeout,
-                    error_message=f"Task inference preprocessing time out: {inference_class}",
-                ):
-                    state = inference.transform(state)
+                state = inference.transform(state)
             except Exception as e:
                 self.handle_exception(
                     f"Task inference preprocessing: {inference_class}", e
                 )
         return state
 
-    def execute(self, state: AgentState) -> AgentState:
-        task_inferences: List[Type[TaskInference]] = [
+    def execute(self, state: StateT) -> StateT:
+        raise NotImplementedError("Subclasses must implement this method")
+
+
+class ProjectAssistant(BaseAssistant[ProjectAgentState]):
+
+    def execute(self, state: ProjectAgentState) -> ProjectAgentState:
+        task_inferences: List[Type[TaskInference[ProjectAgentState]]] = [
             DefineTopicsInference,
             ProjectGenerationInference,
+        ]
+
+        state = self._run_task_inference(task_inferences, state)
+
+        return state
+
+
+class FeedbackAssistant(BaseAssistant[FeedbackAgentState]):
+    def execute(self, state: FeedbackAgentState) -> FeedbackAgentState:
+        task_inferences: List[Type[TaskInference[FeedbackAgentState]]] = [
+            FeedbackInference,
         ]
 
         state = self._run_task_inference(task_inferences, state)

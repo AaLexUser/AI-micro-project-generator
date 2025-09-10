@@ -7,10 +7,10 @@ from typing import Annotated, List, Optional
 import typer
 from rich import print as rprint
 
-from aipg.assistant import Assistant
+from aipg.assistant import ProjectAssistant
 from aipg.configs.app_config import AppConfig
 from aipg.configs.loader import load_config
-from aipg.state import AgentState
+from aipg.state import ProjectAgentState
 
 
 @dataclass
@@ -83,8 +83,8 @@ def run_assistant(
 
     with time_block("initializing components", timer):
         rprint("🤖 [bold red] Welcome to Cherry AI Project Generator [/bold red]")
-        assistant = Assistant(config)
-        state = AgentState(comments=comments)
+        assistant = ProjectAssistant(config)
+        state = ProjectAgentState(comments=comments)
         state = assistant.execute(state)
         rprint(state)
     return state

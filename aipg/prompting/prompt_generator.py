@@ -5,8 +5,8 @@ from pathlib import Path
 from aipg.constants import PACKAGE_PATH
 from aipg.prompting.utils import (
     parse_and_check_json,
-    parse_project_markdown,
     parse_define_topics,
+    parse_project_markdown,
 )
 
 
@@ -83,3 +83,36 @@ class DefineTopicsPromptGenerator(PromptGenerator):
 
     def create_parser(self):
         return parse_define_topics
+
+
+class FeedbackPromptGenerator(PromptGenerator):
+    def __init__(
+        self,
+        user_solution: str,
+        project_goal: str,
+        project_description: str,
+        project_input: str,
+        project_output: str,
+    ):
+        self.user_solution = user_solution
+        self.project_goal = project_goal
+        self.project_description = project_description
+        self.project_input = project_input
+        self.project_output = project_output
+        super().__init__()
+
+    @property
+    def system_prompt(self):
+        return self.load_from_file(Path(PACKAGE_PATH) / "prompting" / "feedback.md")
+
+    def generate_prompt(self) -> str:
+        return f"""[Код студента]: {self.user_solution}
+        [Цель задания]: {self.project_goal}
+        [Описание задания]: {self.project_description}
+        [Входные данные]: {self.project_input}
+        [Ожидаемый результат]: {self.project_output}
+        """
+
+    def create_parser(self):
+        # Feedback should return plain text, not JSON
+        return lambda text, **kwargs: text.strip()

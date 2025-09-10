@@ -17,6 +17,12 @@ class Topic2Project(BaseModel):
     project: Project | None = Field(default=None)
 
 
-class AgentState(BaseModel):
+class ProjectAgentState(BaseModel):
     comments: list[str] = Field(default_factory=list)
     topic2project: list[Topic2Project] = Field(default_factory=list)
+
+
+class FeedbackAgentState(BaseModel):
+    user_solution: str
+    project: Project
+    feedback: str = ""

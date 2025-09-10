@@ -1,4 +1,5 @@
 import pytest
+
 from aipg.exceptions import OutputParserException
 from aipg.prompting.utils import parse_project_markdown
 

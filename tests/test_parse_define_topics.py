@@ -1,7 +1,7 @@
 import pytest
 
-from aipg.prompting.utils import parse_define_topics
 from aipg.exceptions import OutputParserException
+from aipg.prompting.utils import parse_define_topics
 
 
 @pytest.mark.parametrize(

@@ -7,8 +7,8 @@ from omegaconf import DictConfig, ListConfig, OmegaConf
 from pydantic import BaseModel
 
 from aipg.configs.app_config import AppConfig
-from aipg.constants import PACKAGE_NAME, PACKAGE_PATH
 from aipg.configs.overrides import apply_overrides
+from aipg.constants import PACKAGE_NAME, PACKAGE_PATH
 
 
 def _get_default_config_path(
