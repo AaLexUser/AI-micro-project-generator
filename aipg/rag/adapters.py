@@ -128,7 +128,7 @@ class ChromaDbAdapter(VectorStorePort):
 
             def query_collection():
                 return collection.query(
-                    query_embeddings=embedding,
+                    query_embeddings=[embedding],
                     n_results=k,
                     include=["metadatas"],
                 )
@@ -139,7 +139,7 @@ class ChromaDbAdapter(VectorStorePort):
         else:
             # For async client
             res = await collection.query(
-                query_embeddings=embedding,
+                query_embeddings=[embedding],
                 n_results=k,
                 include=["metadatas"],
             )
