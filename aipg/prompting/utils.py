@@ -5,10 +5,11 @@ import re
 from typing import Any, Dict, Iterable, Optional
 
 import json_repair
+from pydantic import ValidationError
 import yaml
 
 from aipg.exceptions import OutputParserException
-from aipg.state import Project
+from aipg.state import Project, ProjectValidationResult
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +118,7 @@ def parse_and_check_json(
         try:
             check_json_values(json_obj, valid_values, fallback_value)
         except ValueError as e:
-            raise OutputParserException(str(e))
+            raise OutputParserException(str(e)) from e
         return json_obj
     raise OutputParserException("JSON decoding error or JSON not found in output")
 
@@ -730,7 +731,7 @@ def parse_llm_ranker_scores(raw_reply: str) -> list[float]:
             expected="JSON array of floats, e.g. [0.8, 0.2, 0.9]",
             got=code_text[:500],
             details={"error": str(e)},
-        )
+        ) from e
 
     # Validate that we got a list
     if not isinstance(loaded, list):
@@ -758,7 +759,7 @@ def parse_llm_ranker_scores(raw_reply: str) -> list[float]:
                 expected="Float between 0.0 and 1.0",
                 got=str(item),
                 details={"error": str(e)},
-            )
+            ) from e
 
     return scores
 
@@ -795,7 +796,7 @@ def parse_define_topics(raw_reply: str) -> list[str]:
             expected="YAML with a 'topics' list, e.g. topics: []",
             got=code_text[:500],
             details={"error": str(e)},
-        )
+        ) from e
 
     # Determine topics list from loaded YAML structure
     topics_value: list[str] | None
@@ -834,3 +835,155 @@ def parse_define_topics(raw_reply: str) -> list[str]:
             )
 
     return normalized
+
+
+def parse_project_validator_yaml(raw_reply: str) -> ProjectValidationResult:
+    """
+    Parse YAML from the project validator response and return validation results.
+
+    Accepts responses that are either:
+    - A YAML fenced code block (```yaml ... ```), or
+    - Raw YAML text
+
+    Returns a ProjectValidationResult object with validation results containing:
+    - is_valid: bool
+    - checks: list of ProjectValidationCheck objects with rule_id, passed, and comment
+
+    Raises OutputParserException for invalid YAML or unsupported structures.
+    """
+    if not raw_reply or not raw_reply.strip():
+        raise OutputParserException(
+            "Empty response provided",
+            expected="YAML with validation results",
+            got="<empty>",
+        )
+
+    # Prefer extracting a YAML/YML fenced code block; fall back to first fenced block; then raw text
+    code_text = (
+        extract_code_block(
+            raw_reply, prefer_languages=("yaml", "yml"), return_fenced=False
+        )
+        or extract_code_block(raw_reply, return_fenced=False)
+        or raw_reply
+    )
+
+    try:
+        loaded = yaml.safe_load(code_text)
+    except yaml.YAMLError as e:
+        raise OutputParserException(
+            "Failed to parse YAML",
+            expected="YAML with validation results",
+            got=code_text[:500],
+            details={"error": str(e)},
+        ) from e
+
+    if not isinstance(loaded, dict):
+        raise OutputParserException(
+            "Expected YAML dictionary",
+            expected="YAML with 'is_valid' and 'checks' keys",
+            got=str(type(loaded)),
+        )
+
+    # Validate required keys
+    if "is_valid" not in loaded:
+        raise OutputParserException(
+            "Missing 'is_valid' key",
+            expected="YAML with 'is_valid' boolean field",
+            got=str(list(loaded.keys())),
+        )
+
+    if "checks" not in loaded:
+        raise OutputParserException(
+            "Missing 'checks' key",
+            expected="YAML with 'checks' list field",
+            got=str(list(loaded.keys())),
+        )
+
+    # Validate is_valid is boolean
+    if not isinstance(loaded["is_valid"], bool):
+        raise OutputParserException(
+            "'is_valid' must be boolean",
+            expected="true or false",
+            got=str(type(loaded["is_valid"])),
+        )
+
+    # Validate checks is a list
+    if not isinstance(loaded["checks"], list):
+        raise OutputParserException(
+            "'checks' must be a list",
+            expected="List of check objects",
+            got=str(type(loaded["checks"])),
+        )
+
+    # Validate each check object
+    for i, check in enumerate(loaded["checks"]):
+        if not isinstance(check, dict):
+            raise OutputParserException(
+                f"Check {i} must be a dictionary",
+                expected="Dictionary with 'rule_id', 'passed', 'comment'",
+                got=str(type(check)),
+            )
+
+        required_keys = {"rule_id", "passed", "comment"}
+        if not required_keys.issubset(check.keys()):
+            missing = required_keys - set(check.keys())
+            raise OutputParserException(
+                f"Check {i} missing required keys",
+                expected=f"Keys: {required_keys}",
+                got=f"Keys: {set(check.keys())}, missing: {missing}",
+            )
+
+        if not isinstance(check["passed"], bool):
+            raise OutputParserException(
+                f"Check {i} 'passed' must be boolean",
+                expected="true or false",
+                got=str(type(check["passed"])),
+            )
+
+        if not isinstance(check["comment"], str):
+            raise OutputParserException(
+                f"Check {i} 'comment' must be string",
+                expected="String comment",
+                got=str(type(check["comment"])),
+            )
+
+    # Validate the complete structure once after all structural checks
+    try:
+        result = ProjectValidationResult.model_validate(loaded)
+    except ValidationError as e:
+        raise OutputParserException(
+            "Validation error in ProjectValidationResult",
+            expected="ProjectValidationResult",
+            got=str(e),
+        ) from e
+
+    return result
+
+
+def format_project_validation_result_yaml(result: ProjectValidationResult) -> str:
+    """
+    Render ProjectValidationResult to a compact YAML string consumable by the corrector agent.
+
+    Output format:
+    is_valid: <boolean>
+    checks:
+      - rule_id: "SOLVABILITY"
+        passed: <boolean>
+        comment: "..."
+      - rule_id: "AUTOTEST_SCOPE"
+        passed: <boolean>
+        comment: "..."
+    """
+    payload = {
+        "is_valid": result.is_valid,
+        "checks": [
+            {
+                "rule_id": check.rule_id,
+                "passed": check.passed,
+                "comment": check.comment,
+            }
+            for check in result.checks
+        ],
+    }
+    # Keep key order stable and allow unicode
+    return yaml.safe_dump(payload, sort_keys=False, allow_unicode=True).strip()
