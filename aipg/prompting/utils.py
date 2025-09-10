@@ -118,7 +118,7 @@ def parse_and_check_json(
         try:
             check_json_values(json_obj, valid_values, fallback_value)
         except ValueError as e:
-            raise OutputParserException(str(e))
+            raise OutputParserException(str(e)) from e
         return json_obj
     raise OutputParserException("JSON decoding error or JSON not found in output")
 
@@ -731,7 +731,7 @@ def parse_llm_ranker_scores(raw_reply: str) -> list[float]:
             expected="JSON array of floats, e.g. [0.8, 0.2, 0.9]",
             got=code_text[:500],
             details={"error": str(e)},
-        )
+        ) from e
 
     # Validate that we got a list
     if not isinstance(loaded, list):
@@ -759,7 +759,7 @@ def parse_llm_ranker_scores(raw_reply: str) -> list[float]:
                 expected="Float between 0.0 and 1.0",
                 got=str(item),
                 details={"error": str(e)},
-            )
+            ) from e
 
     return scores
 
@@ -796,7 +796,7 @@ def parse_define_topics(raw_reply: str) -> list[str]:
             expected="YAML with a 'topics' list, e.g. topics: []",
             got=code_text[:500],
             details={"error": str(e)},
-        )
+        ) from e
 
     # Determine topics list from loaded YAML structure
     topics_value: list[str] | None
@@ -875,7 +875,7 @@ def parse_project_validator_yaml(raw_reply: str) -> ProjectValidationResult:
             expected="YAML with validation results",
             got=code_text[:500],
             details={"error": str(e)},
-        )
+        ) from e
 
     if not isinstance(loaded, dict):
         raise OutputParserException(
@@ -946,14 +946,16 @@ def parse_project_validator_yaml(raw_reply: str) -> ProjectValidationResult:
                 expected="String comment",
                 got=str(type(check["comment"])),
             )
-        try:
-            result = ProjectValidationResult.model_validate(loaded)
-        except ValidationError as e:
-            raise OutputParserException(
-                f"Validation error in check {i}",
-                expected="ProjectValidationResult",
-                got=str(e),
-            )
+
+    # Validate the complete structure once after all structural checks
+    try:
+        result = ProjectValidationResult.model_validate(loaded)
+    except ValidationError as e:
+        raise OutputParserException(
+            "Validation error in ProjectValidationResult",
+            expected="ProjectValidationResult",
+            got=str(e),
+        ) from e
 
     return result
 

@@ -50,10 +50,10 @@ checks:
 is_valid: false
 checks:
   - rule_id: "SOLVABILITY"
-  passed: false
-  comment: "Задача требует фильтрации по столбцу 'status', но этот столбец отсутствует во входных данных (Входные данные)."
+    passed: false
+    comment: "Задача требует фильтрации по столбцу 'status', но этот столбец отсутствует во входных данных (Входные данные)."
   - rule_id: "AUTOTEST_SCOPE"
-  passed: true
-  comment: "OK"
+    passed: true
+    comment: "OK"
 ```
 

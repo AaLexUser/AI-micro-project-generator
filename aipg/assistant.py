@@ -98,9 +98,28 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
                         break
                 if not state.project:
                     state.project = previous_version
+                
+                # Only run final validation if we don't already have a valid result
+                if not state.validation_result or not state.validation_result.is_valid:
+                    logger.info("Running final validation before persisting project")
+                    state = await project_validator_inference.transform(state)
                     
-            if state.project:
+                    # Check final validation result and revert if invalid
+                    if not state.validation_result or not state.validation_result.is_valid:
+                        logger.warning("Final validation failed, reverting to previous version")
+                        state.project = previous_version
+                        state.validation_result = None  # Clear invalid validation result
+                    else:
+                        logger.info("Final validation successful, project ready for persistence")
+                else:
+                    logger.info("Project already validated successfully, skipping final validation")
+                    
+            # Only save if project is present and validation passed
+            if state.project and state.validation_result and state.validation_result.is_valid:
                 await self.rag_service.save(state.topic, state.project)
+                logger.info(f"Project successfully saved for topic: {state.topic}")
+            elif state.project:
+                logger.warning(f"Project exists but validation failed, not saving for topic: {state.topic}")
             
 
         return state
