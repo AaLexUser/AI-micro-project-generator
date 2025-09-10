@@ -9,9 +9,12 @@ from aipg.prompting.prompt_generator import (
     DefineTopicsPromptGenerator,
     FeedbackPromptGenerator,
     LLMRankerPromptGenerator,
+    ProjectCorrectorPromptGenerator,
     ProjectGenerationPromptGenerator,
+    ProjectValidatorPromptGenerator,
     PromptGenerator,
 )
+from aipg.prompting.utils import format_project_validation_result_yaml
 from aipg.rag.service import RagService
 from aipg.state import (
     FeedbackAgentState,
@@ -313,4 +316,119 @@ class RAGServiceInference(TaskInference[ProcessTopicAgentState]):
         logger.info(
             f"RAG Service Inference completed: found {len(candidates)} candidates for topic '{state.topic}'"
         )
+        return state
+
+
+class ProjectValidatorInference(TaskInference[ProcessTopicAgentState]):
+    def initialize_task(self, state: ProcessTopicAgentState):
+        super().initialize_task(state)
+
+    async def transform(self, state: ProcessTopicAgentState) -> ProcessTopicAgentState:
+        self.initialize_task(state)
+        if state.project is None:
+            logger.warning("No project available for validation")
+            return state
+        
+        self.prompt_generator = ProjectValidatorPromptGenerator(
+            project_markdown=state.project.raw_markdown
+        )
+        chat_prompt = self.prompt_generator.generate_chat_prompt()
+        last_exception: OutputParserException | None = None
+        for attempt in range(1, 4):
+            response = await self.llm.query(chat_prompt)
+            try:
+                validation_result = self.prompt_generator.parser(response)
+                state.validation_result = validation_result
+                break
+            except OutputParserException as e:
+                last_exception = e
+                error_feedback = (
+                    f"Parsing error: {e}\n\n"
+                    "IMPORTANT: Return ONLY valid YAML with 'is_valid' and 'checks' fields. "
+                    "Example:\n"
+                    "is_valid: true\n"
+                    "checks:\n"
+                    "  - rule_id: 'SOLVABILITY'\n"
+                    "    passed: true\n"
+                    "    comment: 'OK'\n"
+                    "  - rule_id: 'AUTOTEST_SCOPE'\n"
+                    "    passed: true\n"
+                    "    comment: 'OK'"
+                )
+                chat_prompt.extend(
+                    [
+                        {"role": "assistant", "content": response or ""},
+                        {"role": "user", "content": error_feedback},
+                    ]
+                )
+                logger.warning(
+                    f"Project validator parse failed on attempt {attempt}/3; adding error to context and retrying: {e}"
+                )
+        else:
+            logger.error(
+                f"Failed to parse project validator response after 3 attempts: {last_exception}"
+            )
+            raise (
+                last_exception
+                if last_exception
+                else OutputParserException(
+                    "Project validator parsing failed with no additional context"
+                )
+            )
+        return state
+
+
+class ProjectCorrectorInference(TaskInference[ProcessTopicAgentState]):
+    def initialize_task(self, state: ProcessTopicAgentState):
+        super().initialize_task(state)
+
+    async def transform(self, state: ProcessTopicAgentState) -> ProcessTopicAgentState:
+        self.initialize_task(state)
+        if state.project is None or state.validation_result is None:
+            logger.warning("No project or validation result available for correction")
+            return state
+        
+        # Prepare a YAML report from validation_result for the corrector LLM
+        validation_report = format_project_validation_result_yaml(state.validation_result)
+
+        self.prompt_generator = ProjectCorrectorPromptGenerator(
+            source_project=state.project.raw_markdown,
+            validation_report=validation_report
+        )
+        chat_prompt = self.prompt_generator.generate_chat_prompt()
+        last_exception: OutputParserException | None = None
+        for attempt in range(1, 4):
+            response = await self.llm.query(chat_prompt)
+            try:
+                corrected_project = self.prompt_generator.parser(response)
+                state.project = corrected_project
+                break
+            except OutputParserException as e:
+                last_exception = e
+                error_feedback = (
+                    f"Parsing error: {e}\n\n"
+                    "IMPORTANT: Return ONLY the corrected project markdown without any additional explanations, "
+                    "comments, or code blocks. Start directly with '# Микропроект для углубления темы:' "
+                    "and provide the complete corrected project in the same format as the original."
+                )
+                chat_prompt.extend(
+                    [
+                        {"role": "assistant", "content": response or ""},
+                        {"role": "user", "content": error_feedback},
+                    ]
+                )
+                logger.warning(
+                    f"Project corrector parse failed on attempt {attempt}/3; adding error to context and retrying: {e}"
+                )
+        else:
+            logger.error(
+                f"Failed to parse project corrector response after 3 attempts: {last_exception}"
+            )
+            raise (
+                last_exception
+                if last_exception
+                else OutputParserException(
+                    "Project corrector parsing failed with no additional context"
+                )
+            )
         return state

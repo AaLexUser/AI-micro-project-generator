@@ -44,5 +44,6 @@ class AppConfig(BaseModel):
     langfuse: LangfuseConfig = Field(default_factory=LangfuseConfig)
     task_timeout: int = 3600
     time_limit: int = 14400
+    project_correction_attempts: int = 3
     session_id: str = Field(default_factory=lambda: uuid4().hex)
     rag: RagConfig = RagConfig()

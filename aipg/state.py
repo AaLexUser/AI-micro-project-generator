@@ -1,5 +1,13 @@
 from pydantic import BaseModel, Field
 
+class ProjectValidationCheck(BaseModel):
+    rule_id: str
+    passed: bool
+    comment: str
+
+class ProjectValidationResult(BaseModel):
+    is_valid: bool
+    checks: list[ProjectValidationCheck]
 
 class Project(BaseModel):
     raw_markdown: str
@@ -27,6 +35,7 @@ class ProcessTopicAgentState(BaseModel):
     topic: str
     candidates: list[Topic2Project] = Field(default_factory=list)
     project: Project | None = Field(default=None)
+    validation_result: ProjectValidationResult | None = Field(default=None)
 
 
 class FeedbackAgentState(BaseModel):

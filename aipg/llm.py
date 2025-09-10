@@ -61,7 +61,17 @@ class LLMClient:
                 lambda e: getattr(e, "status_code", None)
                 in {408, 409, 429, 500, 502, 503, 504}
             )
-            | retry_if_exception(lambda e: isinstance(e, (TimeoutError, ConnectionError, httpx.TimeoutException, httpx.ConnectError)))
+            | retry_if_exception(
+                lambda e: isinstance(
+                    e,
+                    (
+                        TimeoutError,
+                        ConnectionError,
+                        httpx.TimeoutException,
+                        httpx.ConnectError,
+                    ),
+                )
+            )
         ),
         reraise=True,
     )
@@ -77,6 +87,10 @@ class LLMClient:
             **self.completion_params,
         )
         choices = getattr(response, "choices", []) or []
-        content = getattr(choices[0].message, "content", None) if choices and getattr(choices[0], "message", None) else None
+        content = (
+            getattr(choices[0].message, "content", None)
+            if choices and getattr(choices[0], "message", None)
+            else None
+        )
         logger.debug("Received response from LLM: %s", content)
         return content

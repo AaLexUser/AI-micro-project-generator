@@ -21,6 +21,7 @@ from aipg.task_inference import (
     RAGServiceInference,
     TaskInference,
 )
+from aipg.task_inference.task_inference import ProjectCorrectorInference, ProjectValidatorInference
 
 StateT = TypeVar("StateT", bound=BaseModel)
 
@@ -45,7 +46,9 @@ class BaseAssistant(Generic[StateT]):
                 state = await inference.transform(state)
             except Exception as e:
                 logger.exception("Task inference failed: %s", inference_class.__name__)
-                self.handle_exception(f"Task inference preprocessing: {inference_class}", e)
+                self.handle_exception(
+                    f"Task inference preprocessing: {inference_class}", e
+                )
         return state
 
     async def execute(self, state: StateT) -> StateT:
@@ -67,6 +70,8 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
             llm=self.llm, similarity_threshold=self.config.rag.similarity_threshold
         )
         project_generation_inference = ProjectGenerationInference(llm=self.llm)
+        project_validator_inference = ProjectValidatorInference(llm=self.llm)
+        project_corrector_inference = ProjectCorrectorInference(llm=self.llm)
 
         # Run RAG service inference to get candidates
         state = await rag_inference.transform(state)
@@ -78,7 +83,25 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
         if not state.project:
             state = await project_generation_inference.transform(state)
             if state.project:
+                previous_version = state.project
+                for attempt in range(1, self.config.project_correction_attempts + 1):
+                    logger.info(f"Project correction attempt {attempt}/{self.config.project_correction_attempts}")
+                    state = await project_validator_inference.transform(state)
+                    if state.validation_result and not state.validation_result.is_valid:
+                        logger.info("Project validation failed, correcting...")
+                        state = await project_corrector_inference.transform(state)
+                        if not state.project:
+                            state.project = previous_version
+                            logger.info("Project correction failed, using previous version")
+                            break
+                    else:
+                        break
+                if not state.project:
+                    state.project = previous_version
+                    
+            if state.project:
                 await self.rag_service.save(state.topic, state.project)
+            
 
         return state
 
@@ -119,7 +142,9 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
                         Topic2Project(topic=result.topic, project=result.project)
                     )
                 else:
-                    logger.warning(f"Warning no project found for topic. Skipping '{result.topic}'")
+                    logger.warning(
+                        f"Warning no project found for topic. Skipping '{result.topic}'"
+                    )
 
         return state
 

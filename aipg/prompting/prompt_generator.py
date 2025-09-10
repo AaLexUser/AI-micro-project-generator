@@ -8,6 +8,7 @@ from aipg.prompting.utils import (
     parse_define_topics,
     parse_llm_ranker_scores,
     parse_project_markdown,
+    parse_project_validator_yaml,
 )
 
 
@@ -59,7 +60,9 @@ class ProjectGenerationPromptGenerator(PromptGenerator):
 
     @property
     def system_prompt(self):
-        return self.load_from_file(Path(PACKAGE_PATH) / "prompting" / "project_gen.md")
+        return self.load_from_file(
+            Path(PACKAGE_PATH) / "prompting" / "project_generator.md"
+        )
 
     def generate_prompt(self) -> str:
         return f"""[Тема]: {self.topic}"""
@@ -144,3 +147,43 @@ class LLMRankerPromptGenerator(PromptGenerator):
 
     def create_parser(self):
         return parse_llm_ranker_scores
+
+
+class ProjectValidatorPromptGenerator(PromptGenerator):
+    def __init__(self, project_markdown: str):
+        self.project_markdown = project_markdown
+        super().__init__()
+
+    @property
+    def system_prompt(self):
+        return self.load_from_file(
+            Path(PACKAGE_PATH) / "prompting" / "project_validator.md"
+        )
+
+    def generate_prompt(self) -> str:
+        return f"[Микропроект для проверки]:\n\n---\n\n{self.project_markdown}\n\n---"
+
+    def create_parser(self):
+        return parse_project_validator_yaml
+
+
+class ProjectCorrectorPromptGenerator(PromptGenerator):
+    def __init__(self, source_project: str, validation_report: str):
+        self.source_project = source_project
+        self.validation_report = validation_report
+        super().__init__()
+
+    @property
+    def system_prompt(self):
+        return self.load_from_file(
+            Path(PACKAGE_PATH) / "prompting" / "project_corrector.md"
+        )
+
+    def generate_prompt(self) -> str:
+        return (
+            f"[Исходный микропроект]:\n\n---\n\n{self.source_project}\n\n---\n\n"
+            f"[Отчет валидатора]:\n\n---\n\n{self.validation_report}\n\n---"
+        )
+
+    def create_parser(self):
+        return parse_project_markdown
