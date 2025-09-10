@@ -1,6 +1,8 @@
 import logging
 from typing import Any, Dict, Generic, List, Optional, TypeVar
 
+from pydantic import BaseModel
+
 from aipg.exceptions import OutputParserException
 from aipg.llm import LLMClient
 from aipg.prompting.prompt_generator import (
@@ -10,7 +12,6 @@ from aipg.prompting.prompt_generator import (
     PromptGenerator,
 )
 from aipg.state import FeedbackAgentState, ProjectAgentState, Topic2Project
-from pydantic import BaseModel
 
 StateT = TypeVar("StateT", bound=BaseModel)
 

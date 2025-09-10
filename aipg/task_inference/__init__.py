@@ -5,4 +5,9 @@ from .task_inference import (
     TaskInference,
 )
 
-__all__ = ["ProjectGenerationInference", "TaskInference", "DefineTopicsInference", "FeedbackInference"]
+__all__ = [
+    "ProjectGenerationInference",
+    "TaskInference",
+    "DefineTopicsInference",
+    "FeedbackInference",
+]

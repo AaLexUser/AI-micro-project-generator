@@ -1,6 +1,6 @@
-from typing import List, Optional, Callable, Sequence, Mapping, Union
+from typing import Callable, List, Mapping, Optional, Sequence, Union
 
-from aipg.rag.ports import VectorStorePort, RetrievedItem, EmbeddingPort
+from aipg.rag.ports import EmbeddingPort, RetrievedItem, VectorStorePort
 
 try:  # Optional dependency at runtime
     import chromadb  # type: ignore
@@ -27,18 +27,19 @@ class ChromaDbAdapter(VectorStorePort):
             name=collection_name, metadata={"hnsw:space": "cosine"}
         )
 
-
     def add(
-            self,
-            ids: Sequence[str],
-            embeddings: Sequence[Sequence[float]],
-            metadatas: Sequence[Mapping[str, Union[str, int, float, bool]]],
+        self,
+        ids: Sequence[str],
+        embeddings: Sequence[Sequence[float]],
+        metadatas: Sequence[Mapping[str, Union[str, int, float, bool]]],
     ) -> None:
         self.collection.add(ids=ids, embeddings=embeddings, metadatas=metadatas)
 
     def query(self, embedding: List[float], k: int) -> List[RetrievedItem]:
         query_embeddings: Sequence[Sequence[float]] = [embedding]
-        res = self.collection.query(query_embeddings=query_embeddings, n_results=k, include=["metadatas"])
+        res = self.collection.query(
+            query_embeddings=query_embeddings, n_results=k, include=["metadatas"]
+        )
         items: List[RetrievedItem] = []
         metadatas = res.get("metadatas") or []
         if metadatas:
@@ -55,11 +56,11 @@ class ChromaDbAdapter(VectorStorePort):
 
 class GeminiEmbeddingAdapter(EmbeddingPort):
     def __init__(
-            self,
-            api_key: Optional[str] = None,
-            base_url: Optional[str] = None,
-            model_name: str = "gemini-embedding-001",
-            client: Optional[object] = None,
+        self,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        model_name: str = "gemini-embedding-001",
+        client: Optional[object] = None,
     ) -> None:
         if client is not None:
             self.client = client
@@ -78,7 +79,7 @@ class GeminiEmbeddingAdapter(EmbeddingPort):
 
 
 def llm_ranker_from_client(
-        llm_query: Callable[[list[dict] | str], Optional[str]],
+    llm_query: Callable[[list[dict] | str], Optional[str]],
 ) -> Callable[[str, List[str]], List[float]]:
     def rank(query: str, candidates: List[str]) -> List[float]:
         if not candidates:

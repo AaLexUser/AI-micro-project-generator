@@ -5,6 +5,8 @@ import threading
 from contextlib import contextmanager
 from typing import List, Optional, Type, TypeVar
 
+from pydantic import BaseModel
+
 from aipg.configs.app_config import AppConfig
 from aipg.llm import LLMClient
 from aipg.state import FeedbackAgentState, ProjectAgentState
@@ -14,7 +16,6 @@ from aipg.task_inference import (
     ProjectGenerationInference,
     TaskInference,
 )
-from pydantic import BaseModel
 
 StateT = TypeVar("StateT", bound=BaseModel)
 
@@ -76,8 +77,8 @@ def timeout(seconds: int, error_message: Optional[str] = None):
         finally:
             signal.alarm(0)
             signal.signal(signal.SIGALRM, previous)
-            
-            
+
+
 class BaseAssistant[StateT]:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
@@ -105,7 +106,6 @@ class BaseAssistant[StateT]:
 
 
 class ProjectAssistant(BaseAssistant[ProjectAgentState]):
-
     def execute(self, state: ProjectAgentState) -> ProjectAgentState:
         task_inferences: List[Type[TaskInference[ProjectAgentState]]] = [
             DefineTopicsInference,

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-from typing import Optional
 
 from aipg.configs.app_config import AppConfig
 from aipg.llm import LLMClient
+
 from .adapters import ChromaDbAdapter, GeminiEmbeddingAdapter, llm_ranker_from_client
 from .service import RagService
 

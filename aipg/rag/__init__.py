@@ -1,5 +1,5 @@
-from .ports import VectorStorePort, EmbeddingPort
-from .service import RagService, RagResult
+from .ports import EmbeddingPort, VectorStorePort
+from .service import RagResult, RagService
 
 __all__ = [
     "EmbeddingPort",

@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, List, Callable
+from typing import Callable, List, Optional
 
-from aipg.rag.ports import EmbeddingPort, VectorStorePort, RetrievedItem
+from aipg.rag.ports import EmbeddingPort, RetrievedItem, VectorStorePort
 
 
 class SourceEnum(Enum):
@@ -97,4 +97,3 @@ class RagService:
             embeddings=[topic_embedding],
             metadatas=[{"topic": topic, "micro_project": micro_project}],
         )
-

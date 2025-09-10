@@ -6,10 +6,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from aipg.assistant import ProjectAssistant, FeedbackAssistant
+from aipg.assistant import FeedbackAssistant, ProjectAssistant
 from aipg.configs.app_config import AppConfig
 from aipg.configs.loader import load_config
-from aipg.state import Project, ProjectAgentState, FeedbackAgentState
+from aipg.state import FeedbackAgentState, Project, ProjectAgentState
 
 logger = logging.getLogger(__name__)
 

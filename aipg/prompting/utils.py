@@ -539,14 +539,14 @@ def parse_project_markdown(raw_markdown: str) -> Project:
         """Remove any conversational text before the actual markdown content."""
         if not text:
             return text
-        
+
         lines = text.splitlines()
         # Look for the first line that starts with "# Микропроект для углубления темы:"
         for i, line in enumerate(lines):
             if line.strip().startswith("# Микропроект для углубления темы:"):
                 # Return everything from this line onwards
                 return "\n".join(lines[i:])
-        
+
         # If no such header found, return original text
         return text
 
