@@ -3,6 +3,7 @@
 .DS_Store
 node_modules
 frontend/node_modules
+frontend/dist
 
 __pycache__
 *.py[cod]
@@ -29,4 +30,15 @@ pnpm-debug.log*
 Dockerfile
 Dockerfile.*
 docker-compose.yml
+docker-compose.override.yml
+compose.yml
+compose.yaml
+
+# Secrets / env files
+.env
+.env.*
+frontend/.env
+frontend/.env.*
+!.env.example
+!frontend/.env.example
 
