@@ -119,7 +119,7 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
                         Topic2Project(topic=result.topic, project=result.project)
                     )
                 else:
-                    logger.error(f"Error processing topic '{result.topic}': {result}")
+                    logger.warning(f"Warning no project found for topic. Skipping '{result.topic}'")
 
         return state
 
