@@ -45,7 +45,7 @@ def test_build_sandbox_service_with_default_config():
     # Assert: verify the service is created with default settings
     assert service is not None
     assert service._default_timeout_seconds == 5  # default from SandboxConfig
-    assert service._runner._image == "python:3.12-alpine"  # default from SandboxConfig
+    assert service._runner._image == "aipg-sandbox:latest"  # default from SandboxConfig
     assert service._runner._memory_limit == "128m"
     assert service._runner._cpu_quota == 0.5
     assert service._runner._pids_limit == 128

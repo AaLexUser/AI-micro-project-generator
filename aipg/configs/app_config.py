@@ -40,7 +40,7 @@ class RagConfig(BaseModel):
 
 
 class SandboxConfig(BaseModel):
-    docker_image: str = "python:3.12-alpine"
+    docker_image: str = "aipg-sandbox:latest"
     memory_limit: str = "128m"
     cpu_quota: Optional[float] = 0.5
     pids_limit: int = 128

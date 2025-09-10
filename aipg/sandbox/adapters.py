@@ -39,7 +39,7 @@ class DockerPythonRunner(SandboxRunner):
             self._default_timeout_seconds = config.default_timeout_seconds
         else:
             # Fallback to individual parameters or defaults for backward compatibility
-            self._image = image or "python:3.12-alpine"
+            self._image = image or "aipg-sandbox:latest"
             self._memory_limit = memory_limit or "128m"
             self._cpu_quota = cpu_quota if cpu_quota is not None else 0.5
             self._pids_limit = pids_limit or 128

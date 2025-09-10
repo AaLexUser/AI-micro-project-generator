@@ -18,7 +18,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
             const match = /language-(\w+)/.exec(className || '');
             const language = match ? match[1] : '';
             const isInline = !language;
-            
+
             if (!isInline && language) {
               return (
                 <div className="relative">
@@ -40,7 +40,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
                 </div>
               );
             }
-            
+
             return (
               <code
                 className="bg-gradient-to-r from-primary/10 to-cyan/5 text-primary px-2 py-1 rounded-md text-sm font-mono border border-primary/20"

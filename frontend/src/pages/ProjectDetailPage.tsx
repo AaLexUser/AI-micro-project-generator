@@ -113,7 +113,7 @@ export function ProjectDetailPage() {
               <MarkdownRenderer content={project.input_data} />
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -144,7 +144,7 @@ export function ProjectDetailPage() {
             value={code}
             onChange={(e) => setCode(e.target.value)}
             className="h-80 font-mono text-sm"
-            placeholder="Write your solution here... 
+            placeholder="Write your solution here...
 
 // Example:
 function solve(input) {
@@ -152,9 +152,9 @@ function solve(input) {
     return result;
 }"
           />
-          
+
           <Separator />
-          
+
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <Button
               onClick={handleSubmit}
@@ -173,7 +173,7 @@ function solve(input) {
                 </>
               )}
             </Button>
-            
+
             {error && (
               <Card className="border-red-200 bg-red-50">
                 <CardContent className="py-3">
@@ -181,7 +181,7 @@ function solve(input) {
                 </CardContent>
               </Card>
             )}
-            
+
             {!error && !code.trim() && (
               <div className="text-sm text-muted-foreground">
                 💡 Write your solution above to get AI feedback
@@ -224,5 +224,3 @@ function solve(input) {
     </div>
   );
 }
-
-

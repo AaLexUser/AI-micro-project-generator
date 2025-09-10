@@ -11,8 +11,8 @@ function App() {
         <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-gray-200/50 shadow-sm">
           <div className="mx-auto max-w-7xl px-6 py-4">
             <div className="flex items-center justify-between">
-              <Link 
-                to="/" 
+              <Link
+                to="/"
                 className="flex items-center gap-3 text-xl font-bold text-gray-900 hover:text-brand-700 transition-colors duration-200"
               >
                 <div className="p-2 bg-gradient-to-br from-brand-500 to-brand-600 rounded-xl shadow-lg">
@@ -22,10 +22,10 @@ function App() {
                   AI Micro Project Generator
                 </span>
               </Link>
-              
+
               <nav className="flex items-center gap-6">
-                <Link 
-                  to="/" 
+                <Link
+                  to="/"
                   className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-brand-700 transition-colors duration-200"
                 >
                   <Zap className="w-4 h-4" />
@@ -35,14 +35,14 @@ function App() {
             </div>
           </div>
         </header>
-        
+
         <main className="flex-1 animate-fade-in">
           <Routes>
             <Route path="/" element={<ProjectsPage />} />
             <Route path="/project/:idx" element={<ProjectDetailPage />} />
           </Routes>
         </main>
-        
+
         <footer className="border-t border-gray-100 bg-gradient-to-r from-gray-50 to-white">
           <div className="mx-auto max-w-7xl px-6 py-8">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">

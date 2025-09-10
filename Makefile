@@ -43,6 +43,12 @@ format: ## Format code and organize imports with ruff
 quality: format lint-fix ## Run all quality checks
 	@echo "$(GREEN)All quality checks completed!$(NC)"
 
+pre-commit-install:
+	pre-commit install
+pre-commit-run:
+	pre-commit run --all-files
+pre-commit: pre-commit-install pre-commit-run
+
 # =============================================================================
 # DOCKER
 # =============================================================================

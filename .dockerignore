@@ -41,4 +41,3 @@ frontend/.env
 frontend/.env.*
 !.env.example
 !frontend/.env.example
-

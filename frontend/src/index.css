@@ -99,80 +99,80 @@
     /* Beautiful gradient background */
     --background: 216 100% 98%;
     --foreground: 230 15% 15%;
-    
+
     /* Cards with subtle tint */
     --card: 0 0% 100%;
     --card-foreground: 230 15% 15%;
-    
+
     /* Popovers */
     --popover: 0 0% 100%;
     --popover-foreground: 230 15% 15%;
-    
+
     /* Primary - vibrant blue-purple */
     --primary: 252 83% 57%;
     --primary-foreground: 0 0% 98%;
-    
+
     /* Secondary - soft lavender */
     --secondary: 252 30% 95%;
     --secondary-foreground: 252 20% 25%;
-    
+
     /* Muted - light purple-gray */
     --muted: 252 15% 96%;
     --muted-foreground: 252 8% 45%;
-    
+
     /* Accent - bright cyan-blue */
     --accent: 199 89% 48%;
     --accent-foreground: 0 0% 98%;
-    
+
     /* Destructive - warm red */
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    
+
     /* Borders - subtle purple tint */
     --border: 252 20% 88%;
     --input: 252 15% 92%;
     --ring: 252 83% 57%;
-    
+
     /* Charts - vibrant and diverse */
     --chart-1: 252 83% 57%;
     --chart-2: 199 89% 48%;
     --chart-3: 142 76% 36%;
     --chart-4: 38 92% 50%;
     --chart-5: 320 65% 52%;
-    
+
     --radius: 0.75rem;
   }
-  
+
   .dark {
     /* Dark mode with deep blues and purples */
     --background: 230 25% 8%;
     --foreground: 0 0% 95%;
-    
+
     --card: 230 20% 10%;
     --card-foreground: 0 0% 95%;
-    
+
     --popover: 230 20% 10%;
     --popover-foreground: 0 0% 95%;
-    
+
     --primary: 252 83% 65%;
     --primary-foreground: 230 25% 8%;
-    
+
     --secondary: 230 15% 18%;
     --secondary-foreground: 0 0% 85%;
-    
+
     --muted: 230 15% 15%;
     --muted-foreground: 0 0% 65%;
-    
+
     --accent: 199 89% 55%;
     --accent-foreground: 230 25% 8%;
-    
+
     --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 98%;
-    
+
     --border: 230 15% 18%;
     --input: 230 15% 15%;
     --ring: 252 83% 65%;
-    
+
     --chart-1: 252 83% 65%;
     --chart-2: 199 89% 55%;
     --chart-3: 142 76% 45%;

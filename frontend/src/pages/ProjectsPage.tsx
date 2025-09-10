@@ -112,14 +112,14 @@ export function ProjectsPage() {
               Add
             </Button>
           </div>
-          
+
           {comments.length > 0 && (
             <div className="space-y-3">
               <h3 className="text-sm font-medium text-muted-foreground">Your Requirements ({comments.length})</h3>
               <div className="space-y-2">
                 {comments.map((c, idx) => (
-                  <Card 
-                    key={idx} 
+                  <Card
+                    key={idx}
                     className="group bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20"
                   >
                     <CardContent className="flex items-start gap-3 p-4">
@@ -140,9 +140,9 @@ export function ProjectsPage() {
               </div>
             </div>
           )}
-          
+
           <Separator />
-          
+
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <Button
               onClick={handleGenerate}
@@ -161,7 +161,7 @@ export function ProjectsPage() {
                 </>
               )}
             </Button>
-            
+
             {error && (
               <Card className="border-red-200 bg-red-50">
                 <CardContent className="py-2">
@@ -169,7 +169,7 @@ export function ProjectsPage() {
                 </CardContent>
               </Card>
             )}
-            
+
             {!error && comments.length === 0 && (
               <div className="text-sm text-muted-foreground">
                 💡 Add at least one requirement to generate projects
@@ -189,7 +189,7 @@ export function ProjectsPage() {
             </div>
           )}
         </div>
-        
+
         {projects.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center space-y-4">
@@ -218,7 +218,7 @@ export function ProjectsPage() {
                       </Badge>
                       <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <h3 className="text-lg font-semibold line-clamp-2 group-hover:text-primary transition-colors">
                         {p.goal}
@@ -227,9 +227,9 @@ export function ProjectsPage() {
                         {p.description}
                       </p>
                     </div>
-                    
+
                     <Separator />
-                    
+
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Click to view details</span>
                       <span className="group-hover:text-primary transition-colors">→</span>
@@ -244,5 +244,3 @@ export function ProjectsPage() {
     </div>
   );
 }
-
-

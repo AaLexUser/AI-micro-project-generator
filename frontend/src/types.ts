@@ -19,5 +19,3 @@ export type GenerateRequest = {
 export type FeedbackResponse = {
   feedback: string;
 };
-
-
