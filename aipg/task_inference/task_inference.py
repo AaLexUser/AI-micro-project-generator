@@ -8,10 +8,16 @@ from aipg.llm import LLMClient
 from aipg.prompting.prompt_generator import (
     DefineTopicsPromptGenerator,
     FeedbackPromptGenerator,
+    LLMRankerPromptGenerator,
     ProjectGenerationPromptGenerator,
     PromptGenerator,
 )
-from aipg.state import FeedbackAgentState, ProjectAgentState, Topic2Project
+from aipg.rag.service import RagService
+from aipg.state import (
+    FeedbackAgentState,
+    ProcessTopicAgentState,
+    ProjectsAgentState,
+)
 
 StateT = TypeVar("StateT", bound=BaseModel)
 
@@ -78,11 +84,11 @@ class TaskInference(Generic[StateT]):
             raise e
 
 
-class DefineTopicsInference(TaskInference[ProjectAgentState]):
-    def initialize_task(self, state: ProjectAgentState):
+class DefineTopicsInference(TaskInference[ProjectsAgentState]):
+    def initialize_task(self, state: ProjectsAgentState):
         super().initialize_task(state)
 
-    def transform(self, state: ProjectAgentState) -> ProjectAgentState:
+    def transform(self, state: ProjectsAgentState) -> ProjectsAgentState:
         self.initialize_task(state)
         comments = state.comments
         self.prompt_generator = DefineTopicsPromptGenerator(comments=comments)
@@ -115,60 +121,53 @@ class DefineTopicsInference(TaskInference[ProjectAgentState]):
                     "Define topics parsing failed with no additional context"
                 )
             )
-        for topic in topics:
-            state.topic2project.append(Topic2Project(topic=topic))
-
+        state.topics = topics
         return state
 
 
-class ProjectGenerationInference(TaskInference[ProjectAgentState]):
-    def initialize_task(self, state: ProjectAgentState):
+class ProjectGenerationInference(TaskInference[ProcessTopicAgentState]):
+    def initialize_task(self, state: ProcessTopicAgentState):
         super().initialize_task(state)
 
-    def transform(self, state: ProjectAgentState) -> ProjectAgentState:
+    def transform(self, state: ProcessTopicAgentState) -> ProcessTopicAgentState:
         self.initialize_task(state)
-        topic2project = state.topic2project
-        for item in state.topic2project:
-            if item.project is None:
-                self.prompt_generator = ProjectGenerationPromptGenerator(
-                    topic=item.topic
+        if state.project is None:
+            self.prompt_generator = ProjectGenerationPromptGenerator(topic=state.topic)
+            chat_prompt = self.prompt_generator.generate_chat_prompt()
+            last_exception: OutputParserException | None = None
+            for attempt in range(1, 4):
+                response = self.llm.query(chat_prompt)
+                try:
+                    state.project = self.prompt_generator.parser(response)
+                    break
+                except OutputParserException as e:
+                    last_exception = e
+                    error_feedback = (
+                        f"Ошибка парсинга: {e}\n\n"
+                        "ВАЖНО: Ответь ТОЛЬКО чистым markdown без дополнительных объяснений или комментариев. "
+                        "Начни сразу с заголовка '# Микропроект для углубления темы: ...' "
+                        "Не добавляй никакого текста до или после markdown контента."
+                    )
+                    chat_prompt.extend(
+                        [
+                            {"role": "assistant", "content": response or ""},
+                            {"role": "user", "content": error_feedback},
+                        ]
+                    )
+                    logger.warning(
+                        f"Project parse failed on attempt {attempt}/3; adding error to context and retrying: {e}"
+                    )
+            else:
+                logger.error(
+                    f"Failed to parse project after 3 attempts: {last_exception}"
                 )
-                chat_prompt = self.prompt_generator.generate_chat_prompt()
-                last_exception: OutputParserException | None = None
-                for attempt in range(1, 4):
-                    response = self.llm.query(chat_prompt)
-                    try:
-                        item.project = self.prompt_generator.parser(response)
-                        break
-                    except OutputParserException as e:
-                        last_exception = e
-                        error_feedback = (
-                            f"Ошибка парсинга: {e}\n\n"
-                            "ВАЖНО: Ответь ТОЛЬКО чистым markdown без дополнительных объяснений или комментариев. "
-                            "Начни сразу с заголовка '# Микропроект для углубления темы: ...' "
-                            "Не добавляй никакого текста до или после markdown контента."
-                        )
-                        chat_prompt.extend(
-                            [
-                                {"role": "assistant", "content": response or ""},
-                                {"role": "user", "content": error_feedback},
-                            ]
-                        )
-                        logger.warning(
-                            f"Project parse failed on attempt {attempt}/3; adding error to context and retrying: {e}"
-                        )
-                else:
-                    logger.error(
-                        f"Failed to parse project after 3 attempts: {last_exception}"
+                raise (
+                    last_exception
+                    if last_exception
+                    else OutputParserException(
+                        "Project parsing failed with no additional context"
                     )
-                    raise (
-                        last_exception
-                        if last_exception
-                        else OutputParserException(
-                            "Project parsing failed with no additional context"
-                        )
-                    )
-        state.topic2project = topic2project
+                )
         return state
 
 
@@ -189,4 +188,121 @@ class FeedbackInference(TaskInference[FeedbackAgentState]):
         response = self.llm.query(chat_prompt)
         feedback = self.prompt_generator.parser(response)
         state.feedback = feedback
+        return state
+
+
+class LLMRankerInference(TaskInference[ProcessTopicAgentState]):
+    def __init__(
+        self, llm: LLMClient, similarity_threshold: float = 0.7, *args, **kwargs
+    ):
+        super().__init__(llm, *args, **kwargs)
+        self.similarity_threshold = similarity_threshold
+
+    def initialize_task(self, state: ProcessTopicAgentState):
+        super().initialize_task(state)
+
+    def transform(self, state: ProcessTopicAgentState) -> ProcessTopicAgentState:
+        self.initialize_task(state)
+        # Extract topic strings from Topic2Project objects
+        candidate_topics = [candidate.topic for candidate in state.candidates]
+        logger.info(
+            f"LLM Ranking initiated for topic: '{state.topic}' with {len(candidate_topics)} candidates"
+        )
+        logger.debug(f"Candidate topics: {candidate_topics}")
+
+        self.prompt_generator = LLMRankerPromptGenerator(
+            topic=state.topic, candidates=candidate_topics
+        )
+        chat_prompt = self.prompt_generator.generate_chat_prompt()
+        last_exception: OutputParserException | None = None
+        for attempt in range(1, 4):
+            logger.debug(f"LLM Ranking attempt {attempt}/3 for topic '{state.topic}'")
+            response = self.llm.query(chat_prompt)
+            try:
+                scores = self.prompt_generator.parser(response)
+                logger.debug(f"Parsed scores: {scores}")
+
+                # Ensure we have the right number of scores
+                if len(scores) != len(state.candidates):
+                    raise OutputParserException(
+                        f"Expected {len(state.candidates)} scores, got {len(scores)}"
+                    )
+
+                # Find the candidate with the highest score
+                if scores:  # Only proceed if we have scores
+                    best_score_idx = max(range(len(scores)), key=lambda i: scores[i])
+                    best_score = scores[best_score_idx]
+                    best_topic = state.candidates[best_score_idx].topic
+
+                    logger.info(
+                        f"Score analysis for topic '{state.topic}': best candidate '{best_topic}' with score {best_score:.3f}"
+                    )
+
+                    # Only set best_candidate if score is above threshold
+                    if best_score >= self.similarity_threshold:
+                        state.project = state.candidates[best_score_idx].project
+                        state.topic = state.candidates[best_score_idx].topic
+                        logger.info(
+                            f"LLM Ranking successful: selected '{best_topic}' with score {best_score:.3f} (threshold: {self.similarity_threshold})"
+                        )
+                    else:
+                        state.project = None
+                        logger.info(
+                            f"LLM Ranking completed: no candidate meets threshold. Best score: {best_score:.3f} (threshold: {self.similarity_threshold})"
+                        )
+                else:
+                    # No scores available, no best candidate
+                    state.project = None
+                    logger.info(
+                        "LLM Ranking completed: no scores available, no best candidate selected"
+                    )
+                break
+            except OutputParserException as e:
+                last_exception = e
+                error_feedback = (
+                    f"Parsing error: {e}\n\n"
+                    "IMPORTANT: Return ONLY a valid JSON array of floats between 0.0 and 1.0. "
+                    f"Expected {len(state.candidates)} scores for {len(state.candidates)} candidates. "
+                    "Example: [0.8, 0.2, 0.9]"
+                )
+                chat_prompt.extend(
+                    [
+                        {"role": "assistant", "content": response or ""},
+                        {"role": "user", "content": error_feedback},
+                    ]
+                )
+                logger.warning(
+                    f"LLM ranker parse failed on attempt {attempt}/3; adding error to context and retrying: {e}"
+                )
+        else:
+            logger.error(
+                f"Failed to parse LLM ranker scores after 3 attempts: {last_exception}"
+            )
+            raise (
+                last_exception
+                if last_exception
+                else OutputParserException(
+                    "LLM ranker parsing failed with no additional context"
+                )
+            )
+        return state
+
+
+class RAGServiceInference(TaskInference[ProcessTopicAgentState]):
+    def __init__(self, llm: LLMClient, rag_service: RagService, *args, **kwargs):
+        super().__init__(llm, *args, **kwargs)
+        self.rag_service = rag_service
+
+    def initialize_task(self, state: ProcessTopicAgentState):
+        super().initialize_task(state)
+
+    def transform(self, state: ProcessTopicAgentState) -> ProcessTopicAgentState:
+        self.initialize_task(state)
+        # Search for candidates using the RAG service
+        logger.info(f"RAG Service Inference initiated for topic: '{state.topic}'")
+        candidates = self.rag_service.try_to_get(state.topic)
+        state.candidates = candidates
+        logger.info(
+            f"RAG Service Inference completed: found {len(candidates)} candidates for topic '{state.topic}'"
+        )
         return state

@@ -6,6 +6,7 @@ from aipg.constants import PACKAGE_PATH
 from aipg.prompting.utils import (
     parse_and_check_json,
     parse_define_topics,
+    parse_llm_ranker_scores,
     parse_project_markdown,
 )
 
@@ -106,13 +107,38 @@ class FeedbackPromptGenerator(PromptGenerator):
         return self.load_from_file(Path(PACKAGE_PATH) / "prompting" / "feedback.md")
 
     def generate_prompt(self) -> str:
-        return f"""[Код студента]: {self.user_solution}
-        [Цель задания]: {self.project_goal}
-        [Описание задания]: {self.project_description}
-        [Входные данные]: {self.project_input}
-        [Ожидаемый результат]: {self.project_output}
-        """
+        return (
+            f"[Код студента]: {self.user_solution}"
+            "[Цель задания]: {self.project_goal}"
+            "[Описание задания]: {self.project_description}"
+            "[Входные данные]: {self.project_input}"
+            "[Ожидаемый результат]: {self.project_output}"
+        )
 
     def create_parser(self):
         # Feedback should return plain text, not JSON
         return lambda text, **kwargs: text.strip()
+
+
+class LLMRankerPromptGenerator(PromptGenerator):
+    def __init__(self, topic: str, candidates: list[str]):
+        self.topic = topic
+        self.candidates = candidates
+        super().__init__()
+
+    @property
+    def system_prompt(self):
+        return self.load_from_file(Path(PACKAGE_PATH) / "prompting" / "llm_ranker.md")
+
+    def generate_prompt(self) -> str:
+        numbered_candidates = "\n".join(
+            [f"{i + 1}. {candidate}" for i, candidate in enumerate(self.candidates)]
+        )
+        return (
+            f"[Проблема студента]: {self.topic}"
+            "[Похожие проблемы]:\n"
+            f"{numbered_candidates}"
+        )
+
+    def create_parser(self):
+        return parse_llm_ranker_scores

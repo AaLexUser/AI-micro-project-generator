@@ -693,6 +693,76 @@ def parse_project_markdown(raw_markdown: str) -> Project:
     )
 
 
+def parse_llm_ranker_scores(raw_reply: str) -> list[float]:
+    """
+    Parse LLM ranker response and return a list of similarity scores.
+
+    Accepts responses that are either:
+    - A JSON fenced code block (```json ... ```), or
+    - Raw JSON text, or
+    - A plain JSON array (fallback)
+
+    Returns a list of float scores in [0,1] range.
+    Raises OutputParserException for invalid JSON or unsupported structures.
+    """
+    if not raw_reply or not raw_reply.strip():
+        return []
+
+    # Prefer extracting a JSON fenced code block; fall back to first fenced block; then raw text
+    code_text = (
+        extract_code_block(raw_reply, prefer_languages=("json",), return_fenced=False)
+        or extract_code_block(raw_reply, return_fenced=False)
+        or raw_reply
+    )
+
+    # Try to extract JSON array from text if it's not pure JSON
+    if not code_text.strip().startswith("["):
+        # Look for a JSON array at the start of the text or after some text
+        json_match = re.search(r"\[[^\]]*\]", code_text)
+        if json_match:
+            code_text = json_match.group(0)
+
+    try:
+        loaded = json.loads(code_text)
+    except json.JSONDecodeError as e:
+        raise OutputParserException(
+            "Failed to parse JSON",
+            expected="JSON array of floats, e.g. [0.8, 0.2, 0.9]",
+            got=code_text[:500],
+            details={"error": str(e)},
+        )
+
+    # Validate that we got a list
+    if not isinstance(loaded, list):
+        raise OutputParserException(
+            "Expected JSON array",
+            expected="JSON array of floats, e.g. [0.8, 0.2, 0.9]",
+            got=str(type(loaded)),
+        )
+
+    # Convert to floats and validate range
+    scores: list[float] = []
+    for i, item in enumerate(loaded):
+        try:
+            score = float(item)
+            if not (0.0 <= score <= 1.0):
+                raise OutputParserException(
+                    f"Score out of range at index {i}",
+                    expected="Float between 0.0 and 1.0",
+                    got=str(score),
+                )
+            scores.append(score)
+        except (ValueError, TypeError) as e:
+            raise OutputParserException(
+                f"Invalid score at index {i}",
+                expected="Float between 0.0 and 1.0",
+                got=str(item),
+                details={"error": str(e)},
+            )
+
+    return scores
+
+
 def parse_define_topics(raw_reply: str) -> list[str]:
     """
     Parse YAML from the model response and return a normalized list of topics.

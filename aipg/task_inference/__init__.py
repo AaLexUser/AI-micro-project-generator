@@ -1,7 +1,9 @@
 from .task_inference import (
     DefineTopicsInference,
     FeedbackInference,
+    LLMRankerInference,
     ProjectGenerationInference,
+    RAGServiceInference,
     TaskInference,
 )
 
@@ -10,4 +12,6 @@ __all__ = [
     "TaskInference",
     "DefineTopicsInference",
     "FeedbackInference",
+    "LLMRankerInference",
+    "RAGServiceInference",
 ]

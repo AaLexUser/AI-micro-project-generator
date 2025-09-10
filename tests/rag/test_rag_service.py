@@ -1,14 +1,56 @@
+from typing import Any, List, Optional
+
 import pytest
 
-from typing import List, Optional
-
-from aipg.rag.ports import EmbeddingPort, VectorStorePort, RetrievedItem
+from aipg.rag.ports import EmbeddingPort, RetrievedItem, VectorStorePort
 from aipg.rag.service import RagService
 from aipg.state import Project, Topic2Project
 
 
+def create_topic2project(
+    topic: str, project_data: dict[str, Any] | None = None
+) -> Topic2Project:
+    """Factory function to create Topic2Project objects for testing."""
+    if project_data is None:
+        project_data = {
+            "raw_markdown": f"mp_{topic}",
+            "topic": topic,
+            "goal": f"goal_{topic}",
+            "description": f"description_{topic}",
+            "input_data": f"input_data_{topic}",
+            "expected_output": f"expected_output_{topic}",
+            "expert_solution": f"expert_solution_{topic}",
+            "autotest": f"autotest_{topic}",
+        }
+
+    project = Project(**project_data)
+    return Topic2Project(topic=topic, project=project)
+
+
+def create_retrieved_item(
+    topic: str, project_data: dict[str, Any] | None = None
+) -> RetrievedItem:
+    """Factory function to create RetrievedItem objects for testing."""
+    if project_data is None:
+        project_data = {
+            "raw_markdown": f"mp_{topic}",
+            "topic": topic,
+            "goal": f"goal_{topic}",
+            "description": f"description_{topic}",
+            "input_data": f"input_data_{topic}",
+            "expected_output": f"expected_output_{topic}",
+            "expert_solution": f"expert_solution_{topic}",
+            "autotest": f"autotest_{topic}",
+        }
+
+    project = Project(**project_data)
+    return RetrievedItem(topic=topic, micro_project=project)
+
+
 class DummyEmbedder(EmbeddingPort):
-    def __init__(self, vector: Optional[List[float]] = None, should_fail: bool = False) -> None:
+    def __init__(
+        self, vector: Optional[List[float]] = None, should_fail: bool = False
+    ) -> None:
         self.vector = vector or [1.0, 0.0, 0.0]
         self.should_fail = should_fail
 
@@ -30,7 +72,9 @@ class DummyVectorStore(VectorStorePort):
         metadatas: List[dict],
     ) -> None:
         # Record call for potential debugging; test assertions avoid relying on this.
-        self.add_calls.append({"ids": ids, "embeddings": embeddings, "metadatas": metadatas})
+        self.add_calls.append(
+            {"ids": ids, "embeddings": embeddings, "metadatas": metadatas}
+        )
 
     def query(self, embedding: List[float], k: int) -> List[RetrievedItem]:
         return self._candidates[:k]
@@ -38,86 +82,50 @@ class DummyVectorStore(VectorStorePort):
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "candidates,scores,threshold,expected_topic2project",
+    "candidates,k_candidates,expected_topic2projects",
     [
-        # Retrieved path: best score above threshold -> return matching candidate
+        # Retrieved path: candidates found -> return all candidates as Topic2Project list
+        (
+            [create_retrieved_item("t1"), create_retrieved_item("t2")],
+            5,  # k_candidates > available candidates
+            [create_topic2project("t1"), create_topic2project("t2")],
+        ),
+        # k_candidates < available candidates -> limit results
         (
             [
-                RetrievedItem(topic="t1", micro_project=Project(raw_markdown="mp1", topic="t1", goal="goal1", description="description1", input_data="input_data1", expected_output="expected_output1", expert_solution="expert_solution1", autotest="autotest1")),
-                RetrievedItem(topic="t2", micro_project=Project(raw_markdown="mp2", topic="t2", goal="goal2", description="description2", input_data="input_data2", expected_output="expected_output2", expert_solution="expert_solution2", autotest="autotest2")),
+                create_retrieved_item("t1"),
+                create_retrieved_item("t2"),
+                create_retrieved_item("t3"),
             ],
-            [0.2, 0.95],
-            0.7,
-            Topic2Project(topic="t2", project=Project(raw_markdown="mp2", topic="t2", goal="goal2", description="description2", input_data="input_data2", expected_output="expected_output2", expert_solution="expert_solution2", autotest="autotest2")),
+            2,  # k_candidates < available candidates
+            [create_topic2project("t1"), create_topic2project("t2")],
         ),
-        # Generated path: candidates exist but scores below threshold
-        (
-            [
-                RetrievedItem(topic="a", micro_project=Project(raw_markdown="A", topic="a", goal="goalA", description="descriptionA", input_data="input_dataA", expected_output="expected_outputA", expert_solution="expert_solutionA", autotest="autotestA")),
-                RetrievedItem(topic="b", micro_project=Project(raw_markdown="B", topic="b", goal="goalB", description="descriptionB", input_data="input_dataB", expected_output="expected_outputB", expert_solution="expert_solutionB", autotest="autotestB")),
-            ],
-            [0.1, 0.2],
-            0.8,
-            None
-        ),
-        # Generated path: no candidates
-        (
-            [],
-            [],
-            0.7,
-            None
-        ),
+        # No candidates found -> return empty list
+        ([], 5, []),
     ],
 )
 def test_try_to_get_main_paths(
     candidates: List[RetrievedItem],
-    scores: List[float],
-    threshold: float,
-    expected_topic2project: Topic2Project
+    k_candidates: int,
+    expected_topic2projects: List[Topic2Project],
 ) -> None:
     topic = "my-topic"
 
     embedder = DummyEmbedder()
     vector_store = DummyVectorStore(candidates=candidates)
 
-    def ranker(_query: str, _cands: List[str]) -> List[float]:
-        return list(scores)
-
     service = RagService(
         embedder=embedder,
         vector_store=vector_store,
-        similarity_threshold=threshold,
-        k_candidates=5,
-        ranker=ranker,
+        k_candidates=k_candidates,
     )
 
     result = service.try_to_get(topic)
 
-    if expected_topic2project is None:
-        assert result is None
-    else:
-        assert result is not None
-        assert result.topic == expected_topic2project.topic
-        assert result.project == expected_topic2project.project
-
-
-@pytest.mark.unit
-def test_try_to_get_raises_without_ranker_when_candidates_present() -> None:
-    embedder = DummyEmbedder()
-    vector_store = DummyVectorStore(
-        candidates=[RetrievedItem(topic="t", micro_project=Project(raw_markdown="mp", topic="t", goal="goal", description="description", input_data="input_data", expected_output="expected_output", expert_solution="expert_solution", autotest="autotest"))]
-    )
-
-    service = RagService(
-        embedder=embedder,
-        vector_store=vector_store,
-        similarity_threshold=0.5,
-        k_candidates=3,
-        ranker=None,
-    )
-
-    with pytest.raises(RuntimeError):
-        service.try_to_get("topic")
+    assert len(result) == len(expected_topic2projects)
+    for i, expected in enumerate(expected_topic2projects):
+        assert result[i].topic == expected.topic
+        assert result[i].project == expected.project
 
 
 @pytest.mark.unit
@@ -125,16 +133,16 @@ def test_try_to_get_raises_when_embedding_processor_fails() -> None:
     """Test that try_to_get raises RuntimeError when embedding processor returns empty list."""
     embedder = DummyEmbedder(should_fail=True)
     vector_store = DummyVectorStore()
-    
+
     service = RagService(
         embedder=embedder,
         vector_store=vector_store,
-        similarity_threshold=0.5,
         k_candidates=3,
-        ranker=lambda topic, candidates: [0.8] * len(candidates),
     )
 
-    with pytest.raises(RuntimeError, match="Failed to generate embedding for topic: 'test-topic'"):
+    with pytest.raises(
+        RuntimeError, match="Failed to generate embedding for topic: 'test-topic'"
+    ):
         service.try_to_get("test-topic")
 
 
@@ -143,11 +151,10 @@ def test_save_raises_when_embedding_processor_fails() -> None:
     """Test that save raises RuntimeError when embedding processor returns empty list."""
     embedder = DummyEmbedder(should_fail=True)
     vector_store = DummyVectorStore()
-    
+
     service = RagService(
         embedder=embedder,
         vector_store=vector_store,
-        similarity_threshold=0.5,
         k_candidates=3,
     )
 
@@ -159,9 +166,31 @@ def test_save_raises_when_embedding_processor_fails() -> None:
         input_data="test input",
         expected_output="test output",
         expert_solution="test solution",
-        autotest="test autotest"
+        autotest="test autotest",
     )
 
-    with pytest.raises(RuntimeError, match="Failed to generate embedding for topic: 'test-topic'"):
+    with pytest.raises(
+        RuntimeError, match="Failed to generate embedding for topic: 'test-topic'"
+    ):
         service.save("test-topic", test_project)
 
+
+@pytest.mark.unit
+def test_constructor_raises_when_k_candidates_invalid() -> None:
+    """Test that constructor raises ValueError when k_candidates is not positive."""
+    embedder = DummyEmbedder()
+    vector_store = DummyVectorStore()
+
+    with pytest.raises(ValueError, match="k_candidates must be positive"):
+        RagService(
+            embedder=embedder,
+            vector_store=vector_store,
+            k_candidates=0,
+        )
+
+    with pytest.raises(ValueError, match="k_candidates must be positive"):
+        RagService(
+            embedder=embedder,
+            vector_store=vector_store,
+            k_candidates=-1,
+        )

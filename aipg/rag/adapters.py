@@ -1,19 +1,22 @@
-from typing import Callable, List, Mapping, Optional, Sequence, Union
+import logging
+from typing import List, Mapping, Optional, Sequence, Union
 
 from google.genai import Client
 
+from aipg.exceptions import OutputParserException
 from aipg.rag.ports import EmbeddingPort, RetrievedItem, VectorStorePort
-from aipg.state import Project
 
 try:
     import chromadb
 except ImportError:
-    chromadb = None # type: ignore
+    chromadb = None  # type: ignore
 
 try:
     from google import genai
 except ImportError:
     genai = None  # type: ignore
+
+logger = logging.getLogger(__name__)
 
 
 class ChromaDbAdapter(VectorStorePort):
@@ -37,37 +40,42 @@ class ChromaDbAdapter(VectorStorePort):
         metadatas: Sequence[Mapping[str, Union[str, int, float, bool]]],
     ) -> None:
         self.collection.add(
-            ids=list(ids), 
-            embeddings=list(embeddings), 
-            metadatas=list(metadatas)
+            ids=list(ids), embeddings=list(embeddings), metadatas=list(metadatas)
         )
 
     def query(self, embedding: List[float], k: int) -> List[RetrievedItem]:
         res = self.collection.query(
-            # Wrap the single embedding in a list for the API
-            query_embeddings=[embedding], n_results=k, include=["metadatas"]
+            query_embeddings=embedding,
+            n_results=k,
+            include=["metadatas"],
         )
         items: List[RetrievedItem] = []
         metadatas = res.get("metadatas") or []
         if metadatas:
             for meta in metadatas[0]:
                 topic = meta.get("topic", "")
-                micro_project = meta.get("micro_project", "")
-                
-                # Reconstruct Project from metadata
-                if isinstance(micro_project, dict):
+                project_md = meta.get("project_md", "")
+
+                # Parse raw markdown to reconstruct Project
+                if project_md and isinstance(project_md, str):
                     try:
-                        micro_project = Project(**micro_project)
-                    except (TypeError, ValueError):
-                        continue  # Skip items that can't be deserialized
-                elif not isinstance(micro_project, Project):
-                    continue  # Skip items that aren’t valid Project instances
+                        from aipg.prompting.utils import parse_project_markdown
+
+                        micro_project = parse_project_markdown(project_md)
+                    except OutputParserException as e:
+                        # Skip items that can't be parsed
+                        logger.warning(
+                            f"Failed to parse raw markdown for topic '{topic}': {e}"
+                        )
+                        continue
+                else:
+                    continue
 
                 items.append(
                     RetrievedItem(
                         topic=str(topic),
                         micro_project=micro_project,
-                        metadata=dict(meta) if meta else None
+                        metadata=dict(meta) if meta else None,
                     )
                 )
         return items
@@ -101,44 +109,3 @@ class GeminiEmbeddingAdapter(EmbeddingPort):
             for vectors in result.embeddings
             if vectors.values is not None
         ]
-
-
-def llm_ranker_from_client(
-    llm_query: Callable[[list[dict] | str], Optional[str]],
-) -> Callable[[str, List[str]], List[float]]:
-    def rank(query: str, candidates: List[str]) -> List[float]:
-        if not candidates:
-            return []
-        numbered = "\n".join([f"{i + 1}. {c}" for i, c in enumerate(candidates)])
-        prompt = [
-            {
-                "role": "system",
-                "content": (
-                    "You are a precise similarity rater. Given a query and a list of candidate topics, "
-                    "return a JSON array of floats in [0,1] representing semantic similarity for each candidate."
-                ),
-            },
-            {
-                "role": "user",
-                "content": (
-                    f"Query: {query}\nCandidates:\n{numbered}\n\n"
-                    "Return only JSON like [0.12, 0.5, 0.99]."
-                ),
-            },
-        ]
-        output = llm_query(prompt) or "[]"
-        try:
-            import json
-
-            scores = json.loads(output)
-            if not isinstance(scores, list):
-                raise ValueError("Invalid scores format")
-            float_scores = [float(x) for x in scores]
-            # Ensure we have the right number of scores
-            if len(float_scores) != len(candidates):
-                return [0.0 for _ in candidates]
-            return float_scores
-        except Exception:
-            return [0.0 for _ in candidates]
-
-    return rank

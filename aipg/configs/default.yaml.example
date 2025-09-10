@@ -14,3 +14,11 @@ langfuse:
   host: ${oc.env:LANGFUSE_HOST, https://cloud.langfuse.com}
   public_key: ${oc.env:LANGFUSE_PUBLIC_KEY, null}
   secret_key: ${oc.env:LANGFUSE_SECRET_KEY, null}
+rag:
+  similarity_threshold: ${oc.env:AIPG_RAG_SIMILARITY_THRESHOLD, 0.7}
+  k_candidates: ${oc.env:AIPG_RAG_K_CANDIDATES, 5}
+  collection_name: ${oc.env:AIPG_RAG_COLLECTION_NAME, micro_projects}
+  chroma_path: ${oc.env:AIPG_RAG_CHROMA_PATH, null}
+  embedding_model: ${oc.env:AIPG_RAG_EMBEDDING_MODEL, gemini-embedding-001}
+  embedding_base_url: ${oc.env:AIPG_RAG_EMBEDDING_BASE_URL, null}
+  embedding_api_key: ${oc.env:AIPG_RAG_EMBEDDING_API_KEY, null}

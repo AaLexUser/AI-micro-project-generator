@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from contextlib import contextmanager
@@ -10,7 +11,7 @@ from rich import print as rprint
 from aipg.assistant import ProjectAssistant
 from aipg.configs.app_config import AppConfig
 from aipg.configs.loader import load_config
-from aipg.state import ProjectAgentState
+from aipg.state import ProjectsAgentState
 
 
 @dataclass
@@ -69,6 +70,13 @@ def run_assistant(
 ):
     start_time = time.perf_counter()
 
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
     logging.info("Starting Cherry AI Project Generator")
     # Load config with all overrides
     try:
@@ -84,8 +92,8 @@ def run_assistant(
     with time_block("initializing components", timer):
         rprint("🤖 [bold red] Welcome to Cherry AI Project Generator [/bold red]")
         assistant = ProjectAssistant(config)
-        state = ProjectAgentState(comments=comments)
-        state = assistant.execute(state)
+        state = ProjectsAgentState(comments=comments)
+        state = asyncio.run(assistant.execute(state))
         rprint(state)
     return state
 
