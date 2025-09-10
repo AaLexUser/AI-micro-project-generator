@@ -50,7 +50,7 @@ def test_service_returns_adapter_result_for_valid_code(code, result):
     assert outcome.exit_code == 0
     assert not outcome.timed_out
     # Avoid brittle exact string checks; ensure expected content is present
-    assert outcome.stdout.strip() in result.stdout.strip()
+    assert result.stdout.strip() in outcome.stdout.strip()
 
 
 @pytest.mark.unit
