@@ -1,0 +1,28 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Install system deps (if needed by some wheels)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy project files
+COPY . /app
+
+# Install python dependencies and the package itself
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir .
+
+# Ensure default config exists in image (can be overridden via volume/env)
+RUN if [ -f "aipg/configs/default.yaml.example" ] && [ ! -f "aipg/configs/default.yaml" ]; then \
+      cp aipg/configs/default.yaml.example aipg/configs/default.yaml; \
+    fi
+
+EXPOSE 8000
+
+CMD ["python", "-m", "aipg.api"]
+

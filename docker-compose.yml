@@ -1,0 +1,30 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    networks:
+      - app
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+      args:
+        - VITE_API_BASE=/api
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    networks:
+      - app
+
+networks:
+  app: {}
+
