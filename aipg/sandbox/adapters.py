@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import base64
-import shlex
 import subprocess
-import sys
 import uuid
 from typing import Optional
 
-from .domain import SandboxResult, SandboxTimeoutError
+from aipg.configs.app_config import SandboxConfig
+
+from .domain import SandboxResult
 from .ports import SandboxRunner
 
 
@@ -21,26 +21,40 @@ class DockerPythonRunner(SandboxRunner):
 
     def __init__(
         self,
-        image: str = "python:3.12-alpine",
-        memory_limit: str = "128m",
-        cpu_quota: Optional[float] = 0.5,
-        pids_limit: int = 128,
-        default_timeout_seconds: int = 5,
+        config: Optional[SandboxConfig] = None,
+        image: Optional[str] = None,
+        memory_limit: Optional[str] = None,
+        cpu_quota: Optional[float] = None,
+        pids_limit: Optional[int] = None,
+        default_timeout_seconds: Optional[int] = None,
     ) -> None:
-        self._image = image
-        self._memory_limit = memory_limit
-        self._cpu_quota = cpu_quota
-        self._pids_limit = pids_limit
-        self._default_timeout_seconds = default_timeout_seconds
+        # Use config if provided, otherwise fall back to individual parameters or defaults
+        if config is not None:
+            self._image = config.docker_image
+            self._memory_limit = config.memory_limit
+            self._cpu_quota = config.cpu_quota
+            self._pids_limit = config.pids_limit
+            self._default_timeout_seconds = config.default_timeout_seconds
+        else:
+            # Fallback to individual parameters or defaults for backward compatibility
+            self._image = image or "python:3.12-alpine"
+            self._memory_limit = memory_limit or "128m"
+            self._cpu_quota = cpu_quota if cpu_quota is not None else 0.5
+            self._pids_limit = pids_limit or 128
+            self._default_timeout_seconds = default_timeout_seconds or 5
 
-    def run(self, code: str, input_data: Optional[str], timeout_seconds: int) -> SandboxResult:
+    def run(
+        self, code: str, input_data: Optional[str], timeout_seconds: int
+    ) -> SandboxResult:
         encoded = base64.b64encode(code.encode("utf-8")).decode("ascii")
         container_name = f"py-sbx-{uuid.uuid4().hex[:12]}"
 
         # Compose a safe command that decodes and executes the user code.
         python_cmd = (
             "python - <<'PY'\n"
-            "import base64,sys; exec(base64.b64decode(\"" + encoded + "\").decode('utf-8'))\n"
+            'import base64,sys; exec(base64.b64decode("'
+            + encoded
+            + "\").decode('utf-8'))\n"
             "PY"
         )
 
@@ -101,8 +115,11 @@ class DockerPythonRunner(SandboxRunner):
 
     def _force_remove(self, name: str) -> None:
         try:
-            subprocess.run(["docker", "rm", "-f", name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(
+                ["docker", "rm", "-f", name],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
         except Exception:
             # Best-effort cleanup
             pass
-

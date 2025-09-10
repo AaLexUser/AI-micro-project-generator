@@ -1,7 +1,7 @@
-import pytest
 from dataclasses import dataclass
-from typing import Protocol, Optional
+from typing import Optional, Protocol
 
+import pytest
 
 # The tests operate as a black box around the service API.
 # We define minimal local Protocols/DTOs mirroring the public contract
@@ -17,14 +17,18 @@ class SandboxResult:
 
 
 class SandboxRunner(Protocol):
-    def run(self, code: str, input_data: Optional[str], timeout_seconds: int) -> SandboxResult: ...
+    def run(
+        self, code: str, input_data: Optional[str], timeout_seconds: int
+    ) -> SandboxResult: ...
 
 
 class FakeRunner:
     def __init__(self, result: SandboxResult):
         self._result = result
 
-    def run(self, code: str, input_data: Optional[str], timeout_seconds: int) -> SandboxResult:
+    def run(
+        self, code: str, input_data: Optional[str], timeout_seconds: int
+    ) -> SandboxResult:
         return self._result
 
 
@@ -61,4 +65,3 @@ def test_service_raises_value_error_on_empty_code():
 
     with pytest.raises(ValueError):
         service.run_code("")
-

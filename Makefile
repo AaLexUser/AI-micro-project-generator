@@ -42,3 +42,29 @@ format: ## Format code and organize imports with ruff
 .PHONY: quality
 quality: format lint-fix ## Run all quality checks
 	@echo "$(GREEN)All quality checks completed!$(NC)"
+
+# =============================================================================
+# DOCKER
+# =============================================================================
+
+.PHONY: docker-build-sandbox
+docker-build-sandbox: ## Build the custom Python sandbox Docker image with preinstalled libraries
+	@echo "$(BLUE)Building custom Python sandbox image...$(NC)"
+	docker build -f docker/Dockerfile.sandbox -t aipg-sandbox:latest .
+	@echo "$(GREEN)Sandbox image built successfully!$(NC)"
+
+.PHONY: docker-build-api
+docker-build-api: ## Build the API Docker image
+	@echo "$(BLUE)Building API image...$(NC)"
+	docker build -f docker/Dockerfile.api -t aipg-api:latest .
+	@echo "$(GREEN)API image built successfully!$(NC)"
+
+.PHONY: docker-build-frontend
+docker-build-frontend: ## Build the frontend Docker image
+	@echo "$(BLUE)Building frontend image...$(NC)"
+	docker build -f docker/Dockerfile.frontend -t aipg-frontend:latest .
+	@echo "$(GREEN)Frontend image built successfully!$(NC)"
+
+.PHONY: docker-build
+docker-build: docker-build-sandbox docker-build-api docker-build-frontend ## Build all Docker images
+	@echo "$(GREEN)All Docker images built successfully!$(NC)"

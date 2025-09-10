@@ -1,13 +1,16 @@
 from pydantic import BaseModel, Field
 
+
 class ProjectValidationCheck(BaseModel):
     rule_id: str
     passed: bool
     comment: str
 
+
 class ProjectValidationResult(BaseModel):
     is_valid: bool
     checks: list[ProjectValidationCheck]
+
 
 class Project(BaseModel):
     raw_markdown: str

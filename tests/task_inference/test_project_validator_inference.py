@@ -8,9 +8,7 @@ from aipg.state import ProcessTopicAgentState, Project, ProjectValidationResult
 from aipg.task_inference.task_inference import ProjectValidatorInference
 
 
-def create_project(
-    topic: str, project_data: dict[str, Any] | None = None
-) -> Project:
+def create_project(topic: str, project_data: dict[str, Any] | None = None) -> Project:
     """Factory function to create Project objects for testing."""
     default_project_data = {
         "raw_markdown": f"# {topic}\n\nDescription: Test project for {topic}",
@@ -22,7 +20,7 @@ def create_project(
         "expert_solution": f"expert_solution_{topic}",
         "autotest": f"autotest_{topic}",
     }
-    
+
     if project_data is not None:
         default_project_data.update(project_data)
 
@@ -73,7 +71,11 @@ checks:
             {
                 "is_valid": False,
                 "checks": [
-                    {"rule_id": "SOLVABILITY", "passed": False, "comment": "Missing required data in input"},
+                    {
+                        "rule_id": "SOLVABILITY",
+                        "passed": False,
+                        "comment": "Missing required data in input",
+                    },
                     {"rule_id": "AUTOTEST_SCOPE", "passed": True, "comment": "OK"},
                 ],
             },
@@ -96,7 +98,11 @@ checks:
                 "is_valid": True,
                 "checks": [
                     {"rule_id": "SOLVABILITY", "passed": True, "comment": "OK"},
-                    {"rule_id": "AUTOTEST_SCOPE", "passed": True, "comment": "No autotest provided"},
+                    {
+                        "rule_id": "AUTOTEST_SCOPE",
+                        "passed": True,
+                        "comment": "No autotest provided",
+                    },
                 ],
             },
         ),
@@ -114,10 +120,9 @@ async def test_project_validator_inference_success(
 
     # Create a Project object using the factory
     project = create_project(
-        topic="test topic",
-        project_data={"raw_markdown": project_markdown}
+        topic="test topic", project_data={"raw_markdown": project_markdown}
     )
-    
+
     state = ProcessTopicAgentState(topic="test topic", project=project)
     inference = ProjectValidatorInference(llm=mock_llm)
 
@@ -145,7 +150,7 @@ async def test_project_validator_inference_max_retries_exceeded() -> None:
     mock_llm.query.return_value = "invalid response"
 
     project = create_project(topic="test topic")
-    
+
     state = ProcessTopicAgentState(topic="test topic", project=project)
     inference = ProjectValidatorInference(llm=mock_llm)
 
@@ -173,7 +178,7 @@ checks:
 ```"""
 
     project = create_project(topic="test topic")
-    
+
     state = ProcessTopicAgentState(topic="test topic", project=project)
     inference = ProjectValidatorInference(llm=mock_llm)
 
@@ -203,7 +208,7 @@ async def test_project_validator_inference_empty_response() -> None:
     mock_llm.query.return_value = ""
 
     project = create_project(topic="test topic")
-    
+
     state = ProcessTopicAgentState(topic="test topic", project=project)
     inference = ProjectValidatorInference(llm=mock_llm)
 
@@ -219,7 +224,7 @@ async def test_project_validator_inference_empty_response() -> None:
 async def test_project_validator_inference_no_project() -> None:
     """Test that ProjectValidatorInference handles state with no project correctly."""
     mock_llm = AsyncMock()
-    
+
     state = ProcessTopicAgentState(topic="test topic", project=None)
     inference = ProjectValidatorInference(llm=mock_llm)
 

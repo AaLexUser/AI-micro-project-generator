@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from aipg.configs.app_config import AppConfig
 from aipg.llm import LLMClient
 from aipg.rag.rag_builder import build_rag_service
+from aipg.sandbox.builder import build_sandbox_service
 from aipg.state import (
     FeedbackAgentState,
     ProcessTopicAgentState,
@@ -21,7 +22,10 @@ from aipg.task_inference import (
     RAGServiceInference,
     TaskInference,
 )
-from aipg.task_inference.task_inference import ProjectCorrectorInference, ProjectValidatorInference
+from aipg.task_inference.task_inference import (
+    ProjectCorrectorInference,
+    ProjectValidatorInference,
+)
 
 StateT = TypeVar("StateT", bound=BaseModel)
 
@@ -59,6 +63,7 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
     def __init__(self, config: AppConfig) -> None:
         super().__init__(config)
         self.rag_service = build_rag_service(config)
+        self.sandbox_service = build_sandbox_service(config)
 
     async def process_topic(self, topic: str) -> ProcessTopicAgentState:
         """Search for projects for a single topic using RAG service and LLM ranking."""
@@ -85,42 +90,62 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
             if state.project:
                 previous_version = state.project
                 for attempt in range(1, self.config.project_correction_attempts + 1):
-                    logger.info(f"Project correction attempt {attempt}/{self.config.project_correction_attempts}")
+                    logger.info(
+                        f"Project correction attempt {attempt}/{self.config.project_correction_attempts}"
+                    )
                     state = await project_validator_inference.transform(state)
                     if state.validation_result and not state.validation_result.is_valid:
                         logger.info("Project validation failed, correcting...")
                         state = await project_corrector_inference.transform(state)
                         if not state.project:
                             state.project = previous_version
-                            logger.info("Project correction failed, using previous version")
+                            logger.info(
+                                "Project correction failed, using previous version"
+                            )
                             break
                     else:
                         break
                 if not state.project:
                     state.project = previous_version
-                
+
                 # Only run final validation if we don't already have a valid result
                 if not state.validation_result or not state.validation_result.is_valid:
                     logger.info("Running final validation before persisting project")
                     state = await project_validator_inference.transform(state)
-                    
+
                     # Check final validation result and revert if invalid
-                    if not state.validation_result or not state.validation_result.is_valid:
-                        logger.warning("Final validation failed, reverting to previous version")
+                    if (
+                        not state.validation_result
+                        or not state.validation_result.is_valid
+                    ):
+                        logger.warning(
+                            "Final validation failed, reverting to previous version"
+                        )
                         state.project = previous_version
-                        state.validation_result = None  # Clear invalid validation result
+                        state.validation_result = (
+                            None  # Clear invalid validation result
+                        )
                     else:
-                        logger.info("Final validation successful, project ready for persistence")
+                        logger.info(
+                            "Final validation successful, project ready for persistence"
+                        )
                 else:
-                    logger.info("Project already validated successfully, skipping final validation")
-                    
+                    logger.info(
+                        "Project already validated successfully, skipping final validation"
+                    )
+
             # Only save if project is present and validation passed
-            if state.project and state.validation_result and state.validation_result.is_valid:
+            if (
+                state.project
+                and state.validation_result
+                and state.validation_result.is_valid
+            ):
                 await self.rag_service.save(state.topic, state.project)
                 logger.info(f"Project successfully saved for topic: {state.topic}")
             elif state.project:
-                logger.warning(f"Project exists but validation failed, not saving for topic: {state.topic}")
-            
+                logger.warning(
+                    f"Project exists but validation failed, not saving for topic: {state.topic}"
+                )
 
         return state
 

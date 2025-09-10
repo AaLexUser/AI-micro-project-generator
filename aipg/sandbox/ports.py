@@ -6,5 +6,6 @@ from .domain import SandboxResult
 
 
 class SandboxRunner(Protocol):
-    def run(self, code: str, input_data: Optional[str], timeout_seconds: int) -> SandboxResult: ...
-
+    def run(
+        self, code: str, input_data: Optional[str], timeout_seconds: int
+    ) -> SandboxResult: ...

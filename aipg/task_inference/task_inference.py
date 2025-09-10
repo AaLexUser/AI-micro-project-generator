@@ -328,7 +328,7 @@ class ProjectValidatorInference(TaskInference[ProcessTopicAgentState]):
         if state.project is None:
             logger.warning("No project available for validation")
             return state
-        
+
         self.prompt_generator = ProjectValidatorPromptGenerator(
             project_markdown=state.project.raw_markdown
         )
@@ -387,13 +387,15 @@ class ProjectCorrectorInference(TaskInference[ProcessTopicAgentState]):
         if state.project is None or state.validation_result is None:
             logger.warning("No project or validation result available for correction")
             return state
-        
+
         # Prepare a YAML report from validation_result for the corrector LLM
-        validation_report = format_project_validation_result_yaml(state.validation_result)
+        validation_report = format_project_validation_result_yaml(
+            state.validation_result
+        )
 
         self.prompt_generator = ProjectCorrectorPromptGenerator(
             source_project=state.project.raw_markdown,
-            validation_report=validation_report
+            validation_report=validation_report,
         )
         chat_prompt = self.prompt_generator.generate_chat_prompt()
         last_exception: OutputParserException | None = None

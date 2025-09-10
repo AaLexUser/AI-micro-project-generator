@@ -39,6 +39,14 @@ class RagConfig(BaseModel):
     embedding_api_key: Optional[str] = None
 
 
+class SandboxConfig(BaseModel):
+    docker_image: str = "python:3.12-alpine"
+    memory_limit: str = "128m"
+    cpu_quota: Optional[float] = 0.5
+    pids_limit: int = 128
+    default_timeout_seconds: int = 5
+
+
 class AppConfig(BaseModel):
     llm: LLMConfig = Field(default_factory=LLMConfig)
     langfuse: LangfuseConfig = Field(default_factory=LangfuseConfig)
@@ -47,3 +55,4 @@ class AppConfig(BaseModel):
     project_correction_attempts: int = 3
     session_id: str = Field(default_factory=lambda: uuid4().hex)
     rag: RagConfig = RagConfig()
+    sandbox: SandboxConfig = Field(default_factory=SandboxConfig)

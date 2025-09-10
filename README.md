@@ -138,9 +138,126 @@ result = service.run_code("print('hello')")
 print(result.stdout)
 ```
 
+#### Preinstalled Libraries
+
+The sandbox includes a custom Docker image with preinstalled Python libraries:
+
+- **pandas** - Data manipulation and analysis
+- **numpy** - Numerical computing
+- **torch** - Machine learning framework
+- **scikit-learn** - Machine learning library
+- **matplotlib** - Plotting library
+- **requests** - HTTP library
+- **beautifulsoup4** - HTML/XML parsing
+- **lxml** - XML processing
+
+To use the custom image with preinstalled libraries:
+
+```python
+from aipg.sandbox.builder import build_sandbox_service
+from aipg.configs.app_config import AppConfig
+
+# Load configuration (includes sandbox settings)
+config = AppConfig()
+service = build_sandbox_service(config)
+
+# Now you can use preinstalled libraries
+result = service.run_code("""
+import pandas as pd
+import numpy as np
+import torch
+
+df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6]})
+print('DataFrame shape:', df.shape)
+
+arr = np.array([1, 2, 3, 4, 5])
+print('Array sum:', arr.sum())
+
+tensor = torch.tensor([1.0, 2.0, 3.0])
+print('Tensor mean:', tensor.mean().item())
+""")
+print(result.stdout)
+```
+
+#### Building Docker Images
+
+The project includes several Docker images that can be built using make targets:
+
+```bash
+# Build all Docker images
+make docker-build
+
+# Build individual images
+make docker-build-sandbox    # Custom Python sandbox with preinstalled libraries
+make docker-build-api        # API server image
+make docker-build-frontend   # Frontend React application image
+```
+
+Or build manually:
+
+```bash
+# Sandbox image with preinstalled libraries
+docker build -f docker/Dockerfile.sandbox -t aipg-sandbox:latest .
+
+# API server image
+docker build -f docker/Dockerfile.api -t aipg-api:latest .
+
+# Frontend image
+docker build -f docker/Dockerfile.frontend -t aipg-frontend:latest .
+```
+
+#### Configuration
+
+Sandbox settings can be configured in `aipg/configs/default.yaml`:
+
+```yaml
+sandbox:
+  docker_image: "aipg-sandbox:latest"  # Custom image with preinstalled libraries
+  memory_limit: "128m"
+  cpu_quota: 0.5
+  pids_limit: 128
+  default_timeout_seconds: 5
+```
+
 Notes:
 - Requires Docker to be installed and the current user able to run `docker`.
 - The adapter runs with `--network none`, `--read-only`, memory/CPU limits, and non-root user.
+- The custom image is based on `python:3.12-slim` for compatibility with all preinstalled libraries.
+
+## 🐳 Docker Deployment
+
+The project includes a complete Docker setup for production deployment:
+
+### Using Docker Compose
+
+```bash
+# Build all images and start services
+docker-compose up --build
+
+# Run in detached mode
+docker-compose up -d --build
+
+# Stop services
+docker-compose down
+```
+
+This will start:
+- **API server** on port 8000
+- **Frontend** on port 80 (nginx)
+- **Sandbox service** (internal)
+
+### Individual Container Usage
+
+```bash
+# Run API server
+docker run -p 8000:8000 aipg-api:latest
+
+# Run frontend
+docker run -p 80:80 aipg-frontend:latest
+
+# Run sandbox (for testing)
+docker run --rm aipg-sandbox:latest python -c "import pandas; print('pandas available')"
+```
 
 ## 🎓 About
 
