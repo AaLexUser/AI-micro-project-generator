@@ -1,21 +1,24 @@
 from typing import Callable, List, Mapping, Optional, Sequence, Union
 
+from google.genai import Client
+
 from aipg.rag.ports import EmbeddingPort, RetrievedItem, VectorStorePort
+from aipg.state import Project
 
-try:  # Optional dependency at runtime
-    import chromadb  # type: ignore
-except Exception:  # pragma: no cover - import-time optionality
-    chromadb = None  # type: ignore
+try:
+    import chromadb
+except ImportError:
+    chromadb = None # type: ignore
 
-try:  # Optional dependency at runtime
-    from google import genai  # type: ignore
-except Exception:  # pragma: no cover - import-time optionality
+try:
+    from google import genai
+except ImportError:
     genai = None  # type: ignore
 
 
 class ChromaDbAdapter(VectorStorePort):
     def __init__(self, collection_name: str, persist_dir: Optional[str] = None) -> None:
-        if chromadb is None:  # pragma: no cover
+        if chromadb is None:
             raise ImportError("chromadb is not installed")
 
         if persist_dir:
@@ -33,12 +36,16 @@ class ChromaDbAdapter(VectorStorePort):
         embeddings: Sequence[Sequence[float]],
         metadatas: Sequence[Mapping[str, Union[str, int, float, bool]]],
     ) -> None:
-        self.collection.add(ids=ids, embeddings=embeddings, metadatas=metadatas)
+        self.collection.add(
+            ids=list(ids), 
+            embeddings=list(embeddings), 
+            metadatas=list(metadatas)
+        )
 
     def query(self, embedding: List[float], k: int) -> List[RetrievedItem]:
-        query_embeddings: Sequence[Sequence[float]] = [embedding]
         res = self.collection.query(
-            query_embeddings=query_embeddings, n_results=k, include=["metadatas"]
+            # Wrap the single embedding in a list for the API
+            query_embeddings=[embedding], n_results=k, include=["metadatas"]
         )
         items: List[RetrievedItem] = []
         metadatas = res.get("metadatas") or []
@@ -46,9 +53,21 @@ class ChromaDbAdapter(VectorStorePort):
             for meta in metadatas[0]:
                 topic = meta.get("topic", "")
                 micro_project = meta.get("micro_project", "")
+                
+                # Reconstruct Project from metadata
+                if isinstance(micro_project, dict):
+                    try:
+                        micro_project = Project(**micro_project)
+                    except (TypeError, ValueError):
+                        continue  # Skip items that can't be deserialized
+                elif not isinstance(micro_project, Project):
+                    continue  # Skip items that aren’t valid Project instances
+
                 items.append(
                     RetrievedItem(
-                        topic=str(topic), micro_project=micro_project, metadata=meta
+                        topic=str(topic),
+                        micro_project=micro_project,
+                        metadata=dict(meta) if meta else None
                     )
                 )
         return items
@@ -60,7 +79,7 @@ class GeminiEmbeddingAdapter(EmbeddingPort):
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         model_name: str = "gemini-embedding-001",
-        client: Optional[object] = None,
+        client: Optional[Client] = None,
     ) -> None:
         if client is not None:
             self.client = client
@@ -75,7 +94,13 @@ class GeminiEmbeddingAdapter(EmbeddingPort):
         if not texts:
             return []
         result = self.client.models.embed_content(model=self.model_name, contents=texts)
-        return [vectors.values for vectors in result.embeddings]
+        if not result.embeddings:
+            return []
+        return [
+            vectors.values
+            for vectors in result.embeddings
+            if vectors.values is not None
+        ]
 
 
 def llm_ranker_from_client(
@@ -89,7 +114,7 @@ def llm_ranker_from_client(
             {
                 "role": "system",
                 "content": (
-                    "You are a precise similarity rater. Given a query and a list of candidate topic, "
+                    "You are a precise similarity rater. Given a query and a list of candidate topics, "
                     "return a JSON array of floats in [0,1] representing semantic similarity for each candidate."
                 ),
             },
@@ -108,7 +133,11 @@ def llm_ranker_from_client(
             scores = json.loads(output)
             if not isinstance(scores, list):
                 raise ValueError("Invalid scores format")
-            return [float(x) for x in scores]
+            float_scores = [float(x) for x in scores]
+            # Ensure we have the right number of scores
+            if len(float_scores) != len(candidates):
+                return [0.0 for _ in candidates]
+            return float_scores
         except Exception:
             return [0.0 for _ in candidates]
 

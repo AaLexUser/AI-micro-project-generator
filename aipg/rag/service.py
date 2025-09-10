@@ -1,20 +1,7 @@
-from dataclasses import dataclass
-from enum import Enum
 from typing import Callable, List, Optional
 
 from aipg.rag.ports import EmbeddingPort, RetrievedItem, VectorStorePort
-
-
-class SourceEnum(Enum):
-    RETRIEVED = 1
-    GENERATED = 2
-
-
-@dataclass
-class RagResult:
-    micro_project: str
-    source: SourceEnum
-    matched_topic: Optional[str]
+from aipg.state import Project, Topic2Project
 
 
 class RagService:
@@ -25,16 +12,23 @@ class RagService:
         similarity_threshold: float = 0.7,
         k_candidates: int = 5,
         ranker: Optional[Callable[[str, List[str]], List[float]]] = None,
-        generator: Optional[Callable[[str], str]] = None,
     ) -> None:
         self.embedder = embedder
         self.vector_store = vector_store
         self.similarity_threshold = similarity_threshold
         self.k_candidates = k_candidates
         self.ranker = ranker
-        self.generator = generator
+        
+        if similarity_threshold < 0 or similarity_threshold > 1:
+            raise ValueError("similarity_threshold must be between 0 and 1")
+        if k_candidates <= 0:
+            raise ValueError("k_candidates must be positive")
 
-    def get_or_create_micro_project(self, topic: str) -> RagResult:
+    def try_to_get(self, topic: str) -> Optional[Topic2Project]:
+        """
+        Try to retrieve a micro project for the given topic.
+        Returns Topic2Project if found, None if not found.
+        """
         topic_embedding = self.embedder.embedding_processor([topic])[0]
         candidates: List[RetrievedItem] = self.vector_store.query(
             embedding=topic_embedding, k=self.k_candidates
@@ -42,55 +36,19 @@ class RagService:
         topic_candidates = [candidate.topic for candidate in candidates]
         if topic_candidates:
             if self.ranker is None:
-                raise RuntimeError("ranker is not configured")
+                raise RuntimeError(
+                    f"Ranker is required when candidates are found, but none was configured. "
+                    f"Found {len(topic_candidates)} candidates for topic '{topic}'"
+                )
             scores = self.ranker(topic, topic_candidates)
             best_idx = max(range(len(scores)), key=lambda i: scores[i])
             best_score = scores[best_idx]
             if best_score >= self.similarity_threshold:
                 best_item = candidates[best_idx]
-                return RagResult(
-                    micro_project=best_item.micro_project,
-                    source=SourceEnum.RETRIEVED,
-                    matched_topic=best_item.topic,
-                )
-        if self.generator is None:
-            raise RuntimeError("generator is not configured")
-        micro_project = self.generator(topic)
-
-        new_embedding = topic_embedding
-        self.vector_store.add(
-            ids=[topic],
-            embeddings=[new_embedding],
-            metadatas=[{"topic": topic, "micro_project": micro_project}],
-        )
-        return RagResult(
-            micro_project=micro_project,
-            source=SourceEnum.GENERATED,
-            matched_topic=topic,
-        )
-
-    def retrieve(self, topic: str) -> Optional[str]:
-        topic_embedding = self.embedder.embedding_processor([topic])[0]
-        candidates: List[RetrievedItem] = self.vector_store.query(
-            embedding=topic_embedding, k=self.k_candidates
-        )
-        candidate_topic = [c.topic for c in candidates]
-        if not candidate_topic:
-            return None
-        if self.ranker is None:
-            raise RuntimeError("Ranker is not configured")
-        if self.generator is None:
-            raise RuntimeError("Generator is not configured")
-        scores = self.ranker(topic, candidate_topic)
-        if not scores:
-            return None
-        best_idx = max(range(len(scores)), key=lambda i: scores[i])
-        best_score = scores[best_idx]
-        if best_score >= self.similarity_threshold:
-            return candidates[best_idx].micro_project
+                return Topic2Project(topic=best_item.topic, project=best_item.micro_project)
         return None
 
-    def save(self, topic: str, micro_project: str) -> None:
+    def save(self, topic: str, micro_project: Project) -> None:
         topic_embedding = self.embedder.embedding_processor([topic])[0]
         self.vector_store.add(
             ids=[topic],

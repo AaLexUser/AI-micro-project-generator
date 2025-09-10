@@ -2,11 +2,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional
 
+from aipg.state import Project
+
 
 @dataclass
 class RetrievedItem:
     topic: str
-    micro_project: str
+    micro_project: Project
     metadata: Optional[dict] = None
 
 
