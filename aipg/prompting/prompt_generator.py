@@ -108,11 +108,13 @@ class FeedbackPromptGenerator(PromptGenerator):
 
     def generate_prompt(self) -> str:
         return (
-            f"[Код студента]: {self.user_solution}"
-            "[Цель задания]: {self.project_goal}"
-            "[Описание задания]: {self.project_description}"
-            "[Входные данные]: {self.project_input}"
-            "[Ожидаемый результат]: {self.project_output}"
+            f"[Код студента]:\n<student_solution>\n{self.user_solution}\n</student_solution>\n\n"
+            "--------------------------------\n\n"
+            "Дополнительная информация о задании:\n\n===CONFIDENTIAL===\n\n"
+            f"[Цель задания]:\n<project_goal>\n{self.project_goal}\n</project_goal>\n"
+            f"[Описание задания]:\n<project_description>\n{self.project_description}\n</project_description>\n"
+            f"[Входные данные]:\n<project_input>\n{self.project_input}\n</project_input>\n"
+            f"[Ожидаемый результат]:\n<project_output>\n{self.project_output}\n</project_output>\n"
         )
 
     def create_parser(self):
