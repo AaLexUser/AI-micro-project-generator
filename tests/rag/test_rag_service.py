@@ -8,10 +8,13 @@ from aipg.state import Project, Topic2Project
 
 
 class DummyEmbedder(EmbeddingPort):
-    def __init__(self, vector: Optional[List[float]] = None) -> None:
+    def __init__(self, vector: Optional[List[float]] = None, should_fail: bool = False) -> None:
         self.vector = vector or [1.0, 0.0, 0.0]
+        self.should_fail = should_fail
 
     def embedding_processor(self, texts: List[str]) -> List[List[float]]:
+        if self.should_fail:
+            return []  # Simulate embedding service failure
         return [self.vector for _ in texts]
 
 
@@ -115,4 +118,50 @@ def test_try_to_get_raises_without_ranker_when_candidates_present() -> None:
 
     with pytest.raises(RuntimeError):
         service.try_to_get("topic")
+
+
+@pytest.mark.unit
+def test_try_to_get_raises_when_embedding_processor_fails() -> None:
+    """Test that try_to_get raises RuntimeError when embedding processor returns empty list."""
+    embedder = DummyEmbedder(should_fail=True)
+    vector_store = DummyVectorStore()
+    
+    service = RagService(
+        embedder=embedder,
+        vector_store=vector_store,
+        similarity_threshold=0.5,
+        k_candidates=3,
+        ranker=lambda topic, candidates: [0.8] * len(candidates),
+    )
+
+    with pytest.raises(RuntimeError, match="Failed to generate embedding for topic: 'test-topic'"):
+        service.try_to_get("test-topic")
+
+
+@pytest.mark.unit
+def test_save_raises_when_embedding_processor_fails() -> None:
+    """Test that save raises RuntimeError when embedding processor returns empty list."""
+    embedder = DummyEmbedder(should_fail=True)
+    vector_store = DummyVectorStore()
+    
+    service = RagService(
+        embedder=embedder,
+        vector_store=vector_store,
+        similarity_threshold=0.5,
+        k_candidates=3,
+    )
+
+    test_project = Project(
+        raw_markdown="test",
+        topic="test-topic",
+        goal="test goal",
+        description="test description",
+        input_data="test input",
+        expected_output="test output",
+        expert_solution="test solution",
+        autotest="test autotest"
+    )
+
+    with pytest.raises(RuntimeError, match="Failed to generate embedding for topic: 'test-topic'"):
+        service.save("test-topic", test_project)
 

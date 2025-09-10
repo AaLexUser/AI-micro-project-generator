@@ -29,7 +29,10 @@ class RagService:
         Try to retrieve a micro project for the given topic.
         Returns Topic2Project if found, None if not found.
         """
-        topic_embedding = self.embedder.embedding_processor([topic])[0]
+        embeddings = self.embedder.embedding_processor([topic])
+        if not embeddings:
+            raise RuntimeError(f"Failed to generate embedding for topic: '{topic}'")
+        topic_embedding = embeddings[0]
         candidates: List[RetrievedItem] = self.vector_store.query(
             embedding=topic_embedding, k=self.k_candidates
         )
@@ -49,7 +52,10 @@ class RagService:
         return None
 
     def save(self, topic: str, micro_project: Project) -> None:
-        topic_embedding = self.embedder.embedding_processor([topic])[0]
+        embeddings = self.embedder.embedding_processor([topic])
+        if not embeddings:
+            raise RuntimeError(f"Failed to generate embedding for topic: '{topic}'")
+        topic_embedding = embeddings[0]
         self.vector_store.add(
             ids=[topic],
             embeddings=[topic_embedding],
