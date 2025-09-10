@@ -121,26 +121,8 @@ aipg/
 ├── prompting/           # Prompt generation
 ├── task_inference/      # AI inference pipeline
 ├── configs/             # Configuration management
-├── sandbox/             # Safe Python sandbox (ports, service, docker adapter)
 └── cache/               # Response caching
 ```
-
-### Sandbox Quickstart
-
-Run untrusted Python code inside Docker via the service:
-
-```python
-from aipg.sandbox.adapters import DockerPythonRunner
-from aipg.sandbox.service import PythonSandboxService
-
-service = PythonSandboxService(runner=DockerPythonRunner())
-result = service.run_code("print('hello')")
-print(result.stdout)
-```
-
-Notes:
-- Requires Docker to be installed and the current user able to run `docker`.
-- The adapter runs with `--network none`, `--read-only`, memory/CPU limits, and non-root user.
 
 ## 🎓 About
 
