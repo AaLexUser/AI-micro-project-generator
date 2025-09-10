@@ -15,17 +15,17 @@ class RetrievedItem:
 @dataclass
 class EmbeddingPort(ABC):
     @abstractmethod
-    def embedding_processor(self, texts: List[str]) -> List[List[float]]: ...
+    async def embedding_processor(self, texts: List[str]) -> List[List[float]]: ...
 
 
 @dataclass
 class VectorStorePort(ABC):
     @abstractmethod
-    def add(
+    async def add(
         self, ids: List[str], embeddings: List[List[float]], metadatas: List[dict]
     ) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def query(self, embedding: List[float], k: int) -> List[RetrievedItem]:
+    async def query(self, embedding: List[float], k: int) -> List[RetrievedItem]:
         raise NotImplementedError

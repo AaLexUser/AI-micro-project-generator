@@ -22,16 +22,16 @@ class RagService:
         if k_candidates <= 0:
             raise ValueError("k_candidates must be positive")
 
-    def try_to_get(self, topic: str) -> List[Topic2Project]:
+    async def try_to_get(self, topic: str) -> List[Topic2Project]:
         """
         Try to retrieve a micro project for the given topic.
         Returns List[Topic2Project] if found, [] if not found.
         """
-        embeddings = self.embedder.embedding_processor([topic])
+        embeddings = await self.embedder.embedding_processor([topic])
         if not embeddings:
             raise RuntimeError(f"Failed to generate embedding for topic: '{topic}'")
         topic_embedding = embeddings[0]
-        candidates: List[RetrievedItem] = self.vector_store.query(
+        candidates: List[RetrievedItem] = await self.vector_store.query(
             embedding=topic_embedding, k=self.k_candidates
         )
         topic_candidates = [candidate.topic for candidate in candidates]
@@ -51,10 +51,22 @@ class RagService:
         )
         return []
 
-    def save(self, topic: str, micro_project: Project) -> None:
+    async def save(self, topic: str, micro_project: Project) -> None:
         logger.info(f"RAG save initiated for topic: '{topic}'")
 
-        embeddings = self.embedder.embedding_processor([topic])
+        # Validate that micro_project content is not empty
+        content = micro_project.raw_markdown.strip()
+        if not content or content in ["", "<!-- -->", "<!-- -->", "<!--  -->"]:
+            logger.warning(
+                f"Empty or placeholder content detected for topic '{topic}' "
+                f"and project '{micro_project.topic}': content='{micro_project.raw_markdown[:100]}...'"
+            )
+            raise RuntimeError(
+                f"Cannot save empty or placeholder content for topic '{topic}' "
+                f"and project '{micro_project.topic}'. Content must contain meaningful project data."
+            )
+
+        embeddings = await self.embedder.embedding_processor([topic])
         if not embeddings:
             raise RuntimeError(f"Failed to generate embedding for topic: '{topic}'")
 
@@ -74,7 +86,7 @@ class RagService:
         deterministic_id = hashlib.sha1(content_for_hash.encode("utf-8")).hexdigest()
         logger.debug(f"Generated deterministic ID: {deterministic_id}")
 
-        self.vector_store.add(
+        await self.vector_store.add(
             ids=[deterministic_id],
             embeddings=[topic_embedding],
             metadatas=[{"topic": topic, "project_md": raw_markdown}],

@@ -205,6 +205,14 @@ class LLMRankerInference(TaskInference[ProcessTopicAgentState]):
         self.initialize_task(state)
         # Extract topic strings from Topic2Project objects
         candidate_topics = [candidate.topic for candidate in state.candidates]
+
+        # Early return if no candidates to avoid unnecessary LLM calls
+        if not candidate_topics:
+            logger.info(
+                f"No candidates found for topic: '{state.topic}', skipping LLM ranking"
+            )
+            return state
+
         logger.info(
             f"LLM Ranking initiated for topic: '{state.topic}' with {len(candidate_topics)} candidates"
         )
@@ -300,7 +308,7 @@ class RAGServiceInference(TaskInference[ProcessTopicAgentState]):
         self.initialize_task(state)
         # Search for candidates using the RAG service
         logger.info(f"RAG Service Inference initiated for topic: '{state.topic}'")
-        candidates = self.rag_service.try_to_get(state.topic)
+        candidates = await self.rag_service.try_to_get(state.topic)
         state.candidates = candidates
         logger.info(
             f"RAG Service Inference completed: found {len(candidates)} candidates for topic '{state.topic}'"

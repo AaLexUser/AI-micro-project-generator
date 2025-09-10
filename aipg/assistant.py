@@ -140,7 +140,7 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
         if not state.project:
             state = await project_generation_inference.transform(state)
             if state.project:
-                self.rag_service.save(state.topic, state.project)
+                await self.rag_service.save(state.topic, state.project)
 
         return state
 

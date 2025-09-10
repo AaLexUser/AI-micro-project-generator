@@ -23,31 +23,126 @@ class ChromaDbAdapter(VectorStorePort):
         if chromadb is None:
             raise ImportError("chromadb is not installed")
 
-        if persist_dir:
-            client = chromadb.PersistentClient(path=persist_dir)
-        else:
-            client = chromadb.Client()
+        self.collection_name = collection_name
+        self.persist_dir = persist_dir
+        self._client = None
+        self._collection = None
 
-        self.collection = client.get_or_create_collection(
-            name=collection_name, metadata={"hnsw:space": "cosine"}
-        )
+    async def _get_client(self):
+        """Get or create the async client."""
+        if self._client is None:
+            if self.persist_dir:
+                # For persistent storage, we still need to use the sync client
+                # as AsyncHttpClient doesn't support local persistence yet
+                import asyncio
+                from concurrent.futures import ThreadPoolExecutor
 
-    def add(
+                def create_sync_client():
+                    return chromadb.PersistentClient(path=self.persist_dir)
+
+                loop = asyncio.get_running_loop()
+                with ThreadPoolExecutor() as executor:
+                    sync_client = await loop.run_in_executor(
+                        executor, create_sync_client
+                    )
+                self._client = sync_client
+            else:
+                # Use AsyncHttpClient for remote connections
+                self._client = await chromadb.AsyncHttpClient()
+        return self._client
+
+    async def _get_collection(self):
+        """Get or create the collection."""
+        if self._collection is None:
+            client = await self._get_client()
+            if self.persist_dir:
+                # For sync client, run in executor
+                import asyncio
+                from concurrent.futures import ThreadPoolExecutor
+
+                def get_collection():
+                    return client.get_or_create_collection(
+                        name=self.collection_name, metadata={"hnsw:space": "cosine"}
+                    )
+
+                loop = asyncio.get_running_loop()
+                with ThreadPoolExecutor() as executor:
+                    self._collection = await loop.run_in_executor(
+                        executor, get_collection
+                    )
+            else:
+                # For async client
+                self._collection = await client.get_or_create_collection(
+                    name=self.collection_name, metadata={"hnsw:space": "cosine"}
+                )
+        return self._collection
+
+    async def add(
         self,
         ids: Sequence[str],
         embeddings: Sequence[Sequence[float]],
         metadatas: Sequence[Mapping[str, Union[str, int, float, bool]]],
     ) -> None:
-        self.collection.add(
-            ids=list(ids), embeddings=list(embeddings), metadatas=list(metadatas)
-        )
+        # Validate that all sequences have the same length
+        ids_len = len(ids)
+        embeddings_len = len(embeddings)
+        metadatas_len = len(metadatas)
 
-    def query(self, embedding: List[float], k: int) -> List[RetrievedItem]:
-        res = self.collection.query(
-            query_embeddings=embedding,
-            n_results=k,
-            include=["metadatas"],
-        )
+        if not (ids_len == embeddings_len == metadatas_len):
+            raise ValueError(
+                f"Length mismatch: ids={ids_len}, embeddings={embeddings_len}, metadatas={metadatas_len}. "
+                "All sequences must have the same length."
+            )
+
+        collection = await self._get_collection()
+
+        if self.persist_dir:
+            # For sync client, run in executor
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+
+            def add_to_collection():
+                collection.add(
+                    ids=list(ids),
+                    embeddings=list(embeddings),
+                    metadatas=list(metadatas),
+                )
+
+            loop = asyncio.get_running_loop()
+            with ThreadPoolExecutor() as executor:
+                await loop.run_in_executor(executor, add_to_collection)
+        else:
+            # For async client
+            await collection.add(
+                ids=list(ids), embeddings=list(embeddings), metadatas=list(metadatas)
+            )
+
+    async def query(self, embedding: List[float], k: int) -> List[RetrievedItem]:
+        collection = await self._get_collection()
+
+        if self.persist_dir:
+            # For sync client, run in executor
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+
+            def query_collection():
+                return collection.query(
+                    query_embeddings=embedding,
+                    n_results=k,
+                    include=["metadatas"],
+                )
+
+            loop = asyncio.get_running_loop()
+            with ThreadPoolExecutor() as executor:
+                res = await loop.run_in_executor(executor, query_collection)
+        else:
+            # For async client
+            res = await collection.query(
+                query_embeddings=embedding,
+                n_results=k,
+                include=["metadatas"],
+            )
+
         items: List[RetrievedItem] = []
         metadatas = res.get("metadatas") or []
         if metadatas:
@@ -97,14 +192,32 @@ class GeminiEmbeddingAdapter(EmbeddingPort):
         self.model_name = model_name
         self.base_url = base_url
 
-    def embedding_processor(self, texts: List[str]) -> List[List[float]]:
+    async def embedding_processor(self, texts: List[str]) -> List[List[float]]:
         if not texts:
             return []
         if genai is None:
             raise ImportError("Genai not available")
         self.client = cast(Client, self.client)
-            
-        result = self.client.models.embed_content(model=self.model_name, contents=texts)
+
+        # Use the async aio module for embedding
+        try:
+            result = await self.client.aio.models.embed_content(
+                model=self.model_name, contents=texts
+            )
+        except AttributeError:
+            # Fallback to sync method in executor if aio is not available
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+
+            def sync_embed():
+                return self.client.models.embed_content(
+                    model=self.model_name, contents=texts
+                )
+
+            loop = asyncio.get_running_loop()
+            with ThreadPoolExecutor() as executor:
+                result = await loop.run_in_executor(executor, sync_embed)
+
         if not result.embeddings:
             return []
         return [

@@ -54,7 +54,7 @@ class DummyEmbedder(EmbeddingPort):
         self.vector = vector or [1.0, 0.0, 0.0]
         self.should_fail = should_fail
 
-    def embedding_processor(self, texts: List[str]) -> List[List[float]]:
+    async def embedding_processor(self, texts: List[str]) -> List[List[float]]:
         if self.should_fail:
             return []  # Simulate embedding service failure
         return [self.vector for _ in texts]
@@ -65,7 +65,7 @@ class DummyVectorStore(VectorStorePort):
         self._candidates = candidates or []
         self.add_calls: List[dict] = []
 
-    def add(
+    async def add(
         self,
         ids: List[str],
         embeddings: List[List[float]],
@@ -76,7 +76,7 @@ class DummyVectorStore(VectorStorePort):
             {"ids": ids, "embeddings": embeddings, "metadatas": metadatas}
         )
 
-    def query(self, embedding: List[float], k: int) -> List[RetrievedItem]:
+    async def query(self, embedding: List[float], k: int) -> List[RetrievedItem]:
         return self._candidates[:k]
 
 
@@ -104,7 +104,8 @@ class DummyVectorStore(VectorStorePort):
         ([], 5, []),
     ],
 )
-def test_try_to_get_main_paths(
+@pytest.mark.asyncio
+async def test_try_to_get_main_paths(
     candidates: List[RetrievedItem],
     k_candidates: int,
     expected_topic2projects: List[Topic2Project],
@@ -120,7 +121,7 @@ def test_try_to_get_main_paths(
         k_candidates=k_candidates,
     )
 
-    result = service.try_to_get(topic)
+    result = await service.try_to_get(topic)
 
     assert len(result) == len(expected_topic2projects)
     for i, expected in enumerate(expected_topic2projects):
@@ -129,7 +130,8 @@ def test_try_to_get_main_paths(
 
 
 @pytest.mark.unit
-def test_try_to_get_raises_when_embedding_processor_fails() -> None:
+@pytest.mark.asyncio
+async def test_try_to_get_raises_when_embedding_processor_fails() -> None:
     """Test that try_to_get raises RuntimeError when embedding processor returns empty list."""
     embedder = DummyEmbedder(should_fail=True)
     vector_store = DummyVectorStore()
@@ -143,11 +145,12 @@ def test_try_to_get_raises_when_embedding_processor_fails() -> None:
     with pytest.raises(
         RuntimeError, match="Failed to generate embedding for topic: 'test-topic'"
     ):
-        service.try_to_get("test-topic")
+        await service.try_to_get("test-topic")
 
 
 @pytest.mark.unit
-def test_save_raises_when_embedding_processor_fails() -> None:
+@pytest.mark.asyncio
+async def test_save_raises_when_embedding_processor_fails() -> None:
     """Test that save raises RuntimeError when embedding processor returns empty list."""
     embedder = DummyEmbedder(should_fail=True)
     vector_store = DummyVectorStore()
@@ -172,7 +175,44 @@ def test_save_raises_when_embedding_processor_fails() -> None:
     with pytest.raises(
         RuntimeError, match="Failed to generate embedding for topic: 'test-topic'"
     ):
-        service.save("test-topic", test_project)
+        await service.save("test-topic", test_project)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_save_success() -> None:
+    """Test that save works correctly when all conditions are met."""
+    embedder = DummyEmbedder()
+    vector_store = DummyVectorStore()
+
+    service = RagService(
+        embedder=embedder,
+        vector_store=vector_store,
+        k_candidates=3,
+    )
+
+    test_project = Project(
+        raw_markdown="test content",
+        topic="test-topic",
+        goal="test goal",
+        description="test description",
+        input_data="test input",
+        expected_output="test output",
+        expert_solution="test solution",
+        autotest="test autotest",
+    )
+
+    # Should not raise any exception
+    await service.save("test-topic", test_project)
+
+    # Verify that add was called on the vector store
+    assert len(vector_store.add_calls) == 1
+    call = vector_store.add_calls[0]
+    assert len(call["ids"]) == 1
+    assert len(call["embeddings"]) == 1
+    assert len(call["metadatas"]) == 1
+    assert call["metadatas"][0]["topic"] == "test-topic"
+    assert call["metadatas"][0]["project_md"] == "test content"
 
 
 @pytest.mark.unit
