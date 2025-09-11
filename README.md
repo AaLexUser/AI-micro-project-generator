@@ -5,7 +5,7 @@
 [![Python Version](https://img.shields.io/badge/python-3.12+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/AaLexUser/AI-micro-project-generator)
 
 *Transform learning challenges into focused, hands-on micro-projects with AI*
 
@@ -53,8 +53,8 @@ Before you begin, ensure you have:
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/ai-micro-project-generator.git
-   cd ai-micro-project-generator
+   git clone https://github.com/AaLexUser/AI-micro-project-generator.git
+   cd AI-micro-project-generator
    ```
 
 2. **Install dependencies**
