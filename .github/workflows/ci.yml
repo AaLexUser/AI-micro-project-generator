@@ -2,91 +2,38 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ main, master ]
-
-permissions:
-  contents: read
+    branches: [ main, develop ]
 
 jobs:
-  pre-commit:
-    name: Pre-commit
+  # Python Backend Tests and Quality Checks
+  backend:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
+    - name: Set up Python
+      run: uv python install 3.12
 
-      - name: Install dev deps
-        run: uv sync --group dev
+    - name: Install dependencies
+      run: uv sync --all-extras
 
-      - name: Run pre-commit (all files)
-        run: uv run pre-commit run --all-files
+    - name: Run linting
+      run: uv run ruff check .
 
-  tests:
-    name: Unit tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Run formatting check
+      run: uv run ruff format --check .
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+    - name: Run type checking
+      run: uv run mypy aipg
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Install project
-        run: uv sync --group dev
-
-      - name: Run pytest (unit only)
-        env:
-          PYTEST_ADDOPTS: "-m 'not integration'"
-        run: uv run pytest -q
-
-name: CI
-
-on:
-  push:
-    branches: ["**"]
-  pull_request:
-    branches: ["**"]
-
-jobs:
-  python:
-    name: Python lint, format check, and tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Sync dependencies (all groups)
-        run: uv sync --all-groups
-
-      - name: Ruff lint
-        run: uv run ruff check --output-format=github .
-
-      - name: Ruff format check
-        run: uv run ruff format --check .
-
-      - name: Run tests
-        run: uv run pytest
-
+    - name: Run tests
+      run: uv run pytest tests/ -v --tb=short -m "not integration"
