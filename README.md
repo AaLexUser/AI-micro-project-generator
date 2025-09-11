@@ -52,34 +52,26 @@ Before you begin, ensure you have:
 ### ⚡ Installation
 
 1. **Clone the repository**
-   ```bash
-   git clone https://github.com/AaLexUser/AI-micro-project-generator.git
-   cd AI-micro-project-generator
-   ```
+```bash
+git clone https://github.com/AaLexUser/AI-micro-project-generator.git
+cd AI-micro-project-generator
+```
 
 2. **Install dependencies**
-   ```bash
-   uv sync
-   ```
+```bash
+uv sync
+```
 
 3. **Set up configuration**
-   ```bash
-   cd aipg/configs
-   cp default.yaml.example default.yaml
-   ```
+```bash
+cp .env_example .env
+```
 
 4. **Configure your environment**
-   ```bash
-   # Edit default.yaml with your API keys
-   nano default.yaml
-   ```
-
-   Required environment variables:
-   ```yaml
-   llm:
-     model_name: "openai/gpt-4o"  # or "gemini/gemini-2.0-flash"
-     api_key: "your-api-key-here"
-   ```
+```bash
+# Edit .env with your API keys
+vim .env
+```
 
 ### 🎮 Basic Usage
 
@@ -149,48 +141,6 @@ curl -X POST "http://localhost:8000/feedback" \
 
 ---
 
-## ⚙️ Configuration
-
-The tool supports extensive configuration through YAML files and command-line overrides.
-
-### 🔧 Configuration Structure
-
-```yaml
-# Core settings
-task_timeout: 3600                    # Task processing timeout (seconds)
-time_limit: 14400                     # Total time limit (seconds)
-project_correction_attempts: 3        # Max correction attempts
-
-# LLM Configuration
-llm:
-  model_name: "openai/gpt-4o"         # Model to use
-  api_key: "your-api-key"             # API key
-  max_completion_tokens: 500          # Token limit
-  temperature: 0.5                    # Creativity level
-  caching:
-    enabled: true                     # Enable response caching
-
-# RAG (Retrieval-Augmented Generation)
-rag:
-  similarity_threshold: 0.7           # Similarity threshold for retrieval
-  k_candidates: 5                     # Number of candidates to retrieve
-  embedding_model: "gemini-embedding-001"
-
-# Sandbox Configuration
-sandbox:
-  docker_image: "aipg-sandbox:latest" # Custom Docker image
-  memory_limit: "128m"                # Memory limit
-  cpu_quota: 0.5                      # CPU quota
-  pids_limit: 128                     # Process limit
-  default_timeout_seconds: 5          # Execution timeout
-
-# Observability
-langfuse:
-  host: "https://cloud.langfuse.com"
-  public_key: "your-public-key"
-  secret_key: "your-secret-key"
-```
-
 ### 🌐 Environment Variables
 
 | Variable | Description | Default |
@@ -211,7 +161,7 @@ langfuse:
 cp .env_example .env
 
 # Edit with your API keys
-nano .env
+vim .env
 ```
 
 ---
