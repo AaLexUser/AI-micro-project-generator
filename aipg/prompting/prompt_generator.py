@@ -62,7 +62,7 @@ class ProjectGenerationPromptGenerator(PromptGenerator):
     @property
     def system_prompt(self):
         return self.load_from_file(
-            Path(PACKAGE_PATH) / "prompting" / "project_generator.md"
+            Path(PACKAGE_PATH) / "prompting" / "prompts" / "project_generator.md"
         )
 
     def generate_prompt(self) -> str:
@@ -80,7 +80,7 @@ class DefineTopicsPromptGenerator(PromptGenerator):
     @property
     def system_prompt(self):
         return self.load_from_file(
-            Path(PACKAGE_PATH) / "prompting" / "define_topics.md"
+            Path(PACKAGE_PATH) / "prompting" / "prompts" / "define_topics.md"
         )
 
     def generate_prompt(self) -> str:
@@ -112,7 +112,9 @@ class FeedbackPromptGenerator(PromptGenerator):
 
     @property
     def system_prompt(self):
-        return self.load_from_file(Path(PACKAGE_PATH) / "prompting" / "feedback.md")
+        return self.load_from_file(
+            Path(PACKAGE_PATH) / "prompting" / "prompts" / "feedback.md"
+        )
 
     def generate_prompt(self) -> str:
         if self.execution_result is None:
@@ -153,7 +155,9 @@ class LLMRankerPromptGenerator(PromptGenerator):
 
     @property
     def system_prompt(self):
-        return self.load_from_file(Path(PACKAGE_PATH) / "prompting" / "llm_ranker.md")
+        return self.load_from_file(
+            Path(PACKAGE_PATH) / "prompting" / "prompts" / "llm_ranker.md"
+        )
 
     def generate_prompt(self) -> str:
         numbered_candidates = "\n".join(
@@ -177,7 +181,7 @@ class ProjectValidatorPromptGenerator(PromptGenerator):
     @property
     def system_prompt(self):
         return self.load_from_file(
-            Path(PACKAGE_PATH) / "prompting" / "project_validator.md"
+            Path(PACKAGE_PATH) / "prompting" / "prompts" / "project_validator.md"
         )
 
     def generate_prompt(self) -> str:
@@ -196,7 +200,7 @@ class ProjectCorrectorPromptGenerator(PromptGenerator):
     @property
     def system_prompt(self):
         return self.load_from_file(
-            Path(PACKAGE_PATH) / "prompting" / "project_corrector.md"
+            Path(PACKAGE_PATH) / "prompting" / "prompts" / "project_corrector.md"
         )
 
     def generate_prompt(self) -> str:
@@ -217,7 +221,9 @@ class BugFixerPromptGenerator(PromptGenerator):
 
     @property
     def system_prompt(self):
-        return self.load_from_file(Path(PACKAGE_PATH) / "prompting" / "bug_fixer.md")
+        return self.load_from_file(
+            Path(PACKAGE_PATH) / "prompting" / "prompts" / "bug_fixer.md"
+        )
 
     def generate_prompt(self) -> str:
         return (

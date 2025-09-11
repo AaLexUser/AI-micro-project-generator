@@ -36,8 +36,9 @@ COPY --from=builder /wheels /wheels
 RUN pip install --no-cache-dir --no-index --find-links=/wheels ai-micro-project-generator \
     && rm -rf /wheels
 
-# Copy runtime assets that are not included in the installed package (configs)
+# Copy runtime assets that are not included in the installed package (configs and prompting)
 COPY aipg/configs /app/aipg/configs
+COPY aipg/prompting/prompts /app/aipg/prompting/prompts
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/data /app/aipg/cache && \
