@@ -103,7 +103,11 @@ class DockerPythonRunner(SandboxRunner):
             try:
                 stdout, stderr = await asyncio.wait_for(
                     process.communicate(input=(input_data or "").encode("utf-8")),
-                    timeout=timeout_seconds or self._default_timeout_seconds,
+                    timeout=(
+                        timeout_seconds
+                        if timeout_seconds is not None
+                        else self._default_timeout_seconds
+                    ),
                 )
                 exit_code = await process.wait()
                 return SandboxResult(

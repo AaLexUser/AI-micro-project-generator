@@ -14,14 +14,14 @@ RUN apt-get update && \
 # Install Python packages
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir \
-    pandas \
-    numpy \
-    torch \
-    scikit-learn \
-    matplotlib \
-    requests \
-    beautifulsoup4 \
-    lxml
+    "pandas>=2.2,<2.3" \
+    "numpy>=1.26,<2.0" \
+    "scikit-learn>=1.4,<1.5" \
+    "matplotlib>=3.8,<3.9" \
+    "requests>=2.31,<2.32" \
+    "beautifulsoup4>=4.12,<4.13" \
+    "lxml>=5.1,<5.2" && \
+    pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<2.5"
 
 # Create a non-root user for security
 RUN useradd -m -s /bin/bash sandbox
