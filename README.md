@@ -329,37 +329,39 @@ graph TD
 
     %% ProjectAssistant Pipeline
     B --> E[DefineTopicsInference]
-    E --> F[Create Topic States]
-    F --> G[Parallel Topic Processing]
 
-    %% Topic Processing Branch (for each topic)
-    G --> H[RAGServiceInference]
-    H --> I{Candidates Found?}
-    I -->|Yes| J[LLMRankerInference]
-    I -->|No| K[ProjectGenerationInference]
-    J --> L{Best Project Selected?}
-    L -->|No| K
-    L -->|Yes| M[Project Found]
+    %% Parallel Processing Box - For Each Topic
+    E --> ParallelBox
 
-    %% Project Generation & Validation Branch
-    K --> N[ProjectValidatorInference]
-    N --> O{Valid Project?}
-    O -->|No| P[ProjectCorrectorInference]
-    P --> Q{Correction Successful?}
-    Q -->|Yes| N
-    Q -->|No| R[Use Previous Version]
-    O -->|Yes| S[CheckAutotestSandboxInference]
+    subgraph ParallelBox [" 🔄 Parallel Execution (For Each Topic) "]
+        H[RAGServiceInference]
+        H --> I{Candidates Found?}
+        I -->|Yes| J[LLMRankerInference]
+        I -->|No| K[ProjectGenerationInference]
+        J --> L{Best Project Selected?}
+        L -->|No| K
+        L -->|Yes| M[Project Found]
 
-    %% Bug Fixing Loop
-    S --> T{Bugs Detected?}
-    T -->|Yes| U[BugFixerInference]
-    U --> S
-    T -->|No| V[Save to RAG]
-    R --> V
-    M --> V
+        %% Project Generation & Validation Branch
+        K --> N[ProjectValidatorInference]
+        N --> O{Valid Project?}
+        O -->|No| P[ProjectCorrectorInference]
+        P --> Q{Correction Successful?}
+        Q -->|Yes| N
+        Q -->|No| R[Use Previous Version]
+        O -->|Yes| S[CheckAutotestSandboxInference]
+
+        %% Bug Fixing Loop
+        S --> T{Bugs Detected?}
+        T -->|Yes| U[BugFixerInference]
+        U --> S
+        T -->|No| V[Save to RAG]
+        R --> V
+        M --> V
+    end
 
     %% Final Output
-    V --> W[Projects Generated]
+    ParallelBox --> W[Projects Generated]
     W --> X[🏁 ProjectAssistant Ends]
 
     %% Styling
@@ -376,6 +378,9 @@ graph TD
     class W outputClass
     class S sandboxClass
     class X endClass
+
+    %% Parallel Box Styling
+    style ParallelBox fill:#f0f8ff,stroke:#4169e1,stroke-width:3px,stroke-dasharray: 5 5
 ```
 
 #### 🔄 Phase 2: Feedback Generation (FeedbackAssistant)
@@ -389,7 +394,7 @@ graph TD
     %% FeedbackAssistant Pipeline
     B --> E[CheckUserSolutionSandboxInference]
     D --> E
-    E --> F[Execute User Code]
+    E --> F[Execute AutoTests]
     F --> G[FeedbackInference]
     G --> H[AI-Generated Feedback]
 
