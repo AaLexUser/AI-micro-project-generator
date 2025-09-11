@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
+      network: host
     env_file:
       - .env
     environment:
@@ -12,8 +13,7 @@ services:
     expose:
       - "8000"
     restart: unless-stopped
-    networks:
-      - app
+    network_mode: "host"
     volumes:
       - api_data:/app/data
       - cache_data:/app/aipg/cache
@@ -33,9 +33,9 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.sandbox
+      network: host
     restart: unless-stopped
-    networks:
-      - app
+    network_mode: "host"
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -57,16 +57,14 @@ services:
       dockerfile: docker/Dockerfile.frontend
       args:
         - VITE_API_BASE=/api
+      network: host
     depends_on:
       api:
         condition: service_healthy
-    ports:
-      - "80:80"
+    network_mode: "host"
     restart: unless-stopped
-    networks:
-      - app
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/", "||", "exit", "1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
