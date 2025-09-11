@@ -1,264 +1,228 @@
-# Cherry AI Micro-Project Generator
+# Cherry AI Micro‑Project Generator
 
 [![Python Version](https://img.shields.io/badge/python-3.12+-blue.svg)](https://python.org)
 
-An AI-powered tool that generates focused, bite-sized learning projects from issue descriptions. Perfect for creating targeted educational tasks that help students learn from their mistakes through practical, hands-on micro-projects.
+Generate focused, bite‑sized learning projects from real error descriptions or topics. Perfect for turning mistakes into hands‑on micro‑projects with clear goals, success criteria, and reference solutions.
 
-## 🎯 What It Does
+## ✨ Features
 
-This tool transforms error descriptions or learning challenges into structured micro-projects with:
+- **From issue → micro‑project**: Turn comments or struggles into structured tasks
+- **Validation & auto‑fixing**: Validates projects and attempts automated bug fixes
+- **Safe sandboxing**: Runs user code inside a Docker‑isolated Python sandbox
+- **API + CLI + Frontend**: FastAPI backend, Typer CLI, React (Vite + Tailwind) UI
+- **RAG powered**: Retrieves prior good projects and reuses them when relevant
 
-- **Task Description**: Clear, focused learning objectives
-- **Success Criteria**: Measurable outcomes for completion
-- **Expert Solution**: Reference implementation and guidance
+---
 
-## 🚀 Quick Start
+## 🚀 Quickstart
 
-### Prerequisites
+### 1) 60‑second CLI
 
-- Python 3.12+
-- [uv](https://github.com/astral-sh/uv) package manager
-
-### Installation
+Prerequisites: Python 3.12+, [uv](https://github.com/astral-sh/uv)
 
 ```bash
-# Clone the repository
-git clone <repository-url>
+# Clone & install
+git clone <your-repo-url>
 cd ai-micro-project-generator
-
-# Install dependencies
 uv sync
 
-# Set up environment variables
-cd aipg/configs
-cp default.yaml.example default.yaml
-# Edit default.yaml with your API keys
+# Configure LLM (OpenAI‑compatible via LiteLLM)
+cp aipg/configs/default.yaml.example aipg/configs/default.yaml
+export AIPG_LLM_API_KEY="<your_api_key>"
+# Optionally customize model/base url
+# export AIPG_LLM_MODEL="openai/gpt-4o"
+# export AIPG_LLM_BASE_URL="https://api.openai.com/v1"  # or your compatible gateway
+
+# Generate micro‑projects from comments/topics
+uv run aipg "I keep mixing up list comprehensions with map/filter"
 ```
 
-### Basic Usage
+Pass multiple comments by adding more quoted arguments. You can override any config key inline:
 
 ```bash
-# Generate a micro-project from an issue description
-uv run aipg "I keep mixing up Python list comprehensions with map/filter"
-
-# Use custom configuration
-uv run aipg --config-path custom.yaml "My function returns None instead of expected value"
-
-# Override config values
-uv run aipg -o llm.model_name="gpt-4" "Database connection fails with timeout"
+uv run aipg -o llm.model_name=openai/gpt-4o -o rag.k_candidates=8 "Database connection times out"
 ```
 
-## ⚙️ Configuration
-
-The tool supports extensive configuration through YAML files and command-line overrides.
-
-### Default Configuration
-
-```yaml
-task_timeout: 3600        # Task processing timeout (seconds)
-time_limit: 14400         # Total time limit (seconds)
-llm:
-  model_name: "gemini/gemini-2.0-flash"
-  max_completion_tokens: 500
-  temperature: 0.5
-  caching:
-    enabled: true
-```
-
-## 🛠️ Development
-
-### Setup Development Environment
+### 2) API + Frontend (Docker Compose)
 
 ```bash
-# Install development dependencies
-uv sync --group dev
-
-# Run code quality checks
-make quality
-
-# Run linter
-make lint
-
-# Auto-fix linting issues
-make lint-fix
+docker compose up -d --build
 ```
 
-### Run the API server
+- Frontend: http://localhost
+- API health: http://localhost/api/health
+
+To stop: `docker compose down`.
+
+### 3) Run locally (no Docker)
+
+Backend API (FastAPI):
 
 ```bash
-uv run python -m aipg.api
+uv run api
+# or: uv run python -m aipg.api
+# API: http://localhost:8000
 ```
 
-The FastAPI server runs at `http://localhost:8000` and exposes:
-
-- `POST /projects` — body: `{ comments: string[] }` → returns `Project[]`
-- `POST /feedback` — body: `{ project, user_solution }` → returns `{ feedback }`
-- `GET /health`
-
-### Frontend (React + Vite + Tailwind)
-
-A React frontend is available in `frontend/` to interact with the API.
+Frontend (Vite + React + Tailwind):
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
-```
-
-The app runs at `http://localhost:5173` with CORS enabled on the API. To point to a different API URL:
-
-```bash
+# App: http://localhost:5173
+# Point to a different API if needed:
 VITE_API_BASE=http://localhost:8000 npm run dev
 ```
 
-### Project Structure
+---
+
+## 🧩 API Overview
+
+Base URL when running locally without nginx: `http://localhost:8000`
+
+- `GET /health` → `{ "status": "ok" }`
+- `POST /projects` → Generate projects
+  - Body: `{ "comments": string[], "overrides?": string[] }`
+  - Returns: `Project[]`
+- `POST /feedback` → Get feedback on a user solution
+  - Body: `{ "project": Project, "user_solution": string, "overrides?": string[] }`
+  - Returns: `{ "feedback": string, "execution_result?": { stdout, stderr, exit_code, timed_out } }`
+
+Example request:
+
+```bash
+curl -X POST http://localhost:8000/projects \
+  -H 'Content-Type: application/json' \
+  -d '{"comments":["Struggling with async/await in Python"],"overrides":["llm.model_name=openai/gpt-4o"]}'
+```
+
+When using Docker Compose, the frontend proxies the API under `/api` (see `docker/nginx.conf`).
+
+---
+
+## ⚙️ Configuration
+
+The app reads settings from `aipg/configs/default.yaml` (copy the example first):
+
+```bash
+cp aipg/configs/default.yaml.example aipg/configs/default.yaml
+```
+
+Key sections (env‑override friendly via OmegaConf):
+
+- `llm.*`
+  - `AIPG_LLM_MODEL` (default `openai/gpt-4o`)
+  - `AIPG_LLM_BASE_URL` (OpenAI‑compatible endpoint if not default)
+  - `AIPG_LLM_API_KEY` (required)
+- `langfuse.*` (optional analytics)
+  - `LANGFUSE_HOST`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`
+- `rag.*`
+  - `AIPG_RAG_SIMILARITY_THRESHOLD`, `AIPG_RAG_K_CANDIDATES`, `AIPG_RAG_COLLECTION_NAME`
+  - Embeddings: `AIPG_RAG_EMBEDDING_MODEL`, `AIPG_RAG_EMBEDDING_BASE_URL`, `AIPG_RAG_EMBEDDING_API_KEY`
+- `sandbox.*`
+  - Uses Docker image `aipg-sandbox:latest` by default
+  - Limits and timeouts configurable via env (see example file)
+
+You can also override any key at runtime with `-o key=value` via the CLI or by passing `overrides` in API requests.
+
+---
+
+## 🛠️ Development
+
+Install dev tools and run quality checks:
+
+```bash
+uv sync --group dev
+make quality      # format + autofix
+make lint         # check
+make lint-fix     # autofix only
+```
+
+Pre‑commit hooks:
+
+```bash
+make pre-commit
+```
+
+Run tests:
+
+```bash
+uv run pytest -v
+# or see: tests/README.md
+```
+
+---
+
+## 🧪 Sandbox (optional but recommended)
+
+The project ships a dedicated Python sandbox image with useful libraries preinstalled
+(`pandas`, `numpy`, `scikit-learn`, `matplotlib`, `requests`, `beautifulsoup4`, `lxml`, `torch` CPU).
+
+Build it once if you are not using Docker Compose:
+
+```bash
+make docker-build-sandbox
+# or
+docker build -f docker/Dockerfile.sandbox -t aipg-sandbox:latest .
+```
+
+The backend will use the image specified in `sandbox.docker_image`.
+
+---
+
+## 🧭 Project Structure
 
 ```
 aipg/
-├── assistant.py          # Main assistant logic
-├── llm.py               # LLM client wrapper
-├── task.py              # Task and data models
-├── prompting/           # Prompt generation
-├── task_inference/      # AI inference pipeline
-├── configs/             # Configuration management
-├── sandbox/             # Safe Python sandbox (ports, service, docker adapter)
-└── cache/               # Response caching
+├── api.py                 # FastAPI app + routes
+├── assistant.py           # Assistants orchestration (projects, feedback)
+├── configs/               # AppConfig, loader, defaults (YAML)
+├── domain.py              # Pydantic models and agent states
+├── llm.py                 # LiteLLM client wrapper
+├── prompting/             # Prompt templates and utils
+├── rag/                   # RAG service + adapters
+├── sandbox/               # Docker‑based Python sandbox
+└── task_inference/        # Inference pipeline steps
 ```
 
-### Sandbox Quickstart
+Frontend lives in `frontend/` (Vite + React + Tailwind). Dockerfiles are in `docker/`.
 
-Run untrusted Python code inside Docker via the service:
+---
 
-```python
-from aipg.sandbox.adapters import DockerPythonRunner
-from aipg.sandbox.service import PythonSandboxService
-
-service = PythonSandboxService(runner=DockerPythonRunner())
-result = service.run_code("print('hello')")
-print(result.stdout)
-```
-
-#### Preinstalled Libraries
-
-The sandbox includes a custom Docker image with preinstalled Python libraries:
-
-- **pandas** - Data manipulation and analysis
-- **numpy** - Numerical computing
-- **torch** - Machine learning framework
-- **scikit-learn** - Machine learning library
-- **matplotlib** - Plotting library
-- **requests** - HTTP library
-- **beautifulsoup4** - HTML/XML parsing
-- **lxml** - XML processing
-
-To use the custom image with preinstalled libraries:
-
-```python
-from aipg.sandbox.builder import build_sandbox_service
-from aipg.configs.app_config import AppConfig
-
-# Load configuration (includes sandbox settings)
-config = AppConfig()
-service = build_sandbox_service(config)
-
-# Now you can use preinstalled libraries
-result = service.run_code("""
-import pandas as pd
-import numpy as np
-import torch
-
-df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6]})
-print('DataFrame shape:', df.shape)
-
-arr = np.array([1, 2, 3, 4, 5])
-print('Array sum:', arr.sum())
-
-tensor = torch.tensor([1.0, 2.0, 3.0])
-print('Tensor mean:', tensor.mean().item())
-""")
-print(result.stdout)
-```
-
-#### Building Docker Images
-
-The project includes several Docker images that can be built using make targets:
+## 🐳 Docker Cheat‑Sheet
 
 ```bash
-# Build all Docker images
+# Build all images
 make docker-build
 
-# Build individual images
-make docker-build-sandbox    # Custom Python sandbox with preinstalled libraries
-make docker-build-api        # API server image
-make docker-build-frontend   # Frontend React application image
+# Build individually
+make docker-build-api
+make docker-build-frontend
+make docker-build-sandbox
+
+# Compose up/down
+docker compose up -d --build
+docker compose down
 ```
 
-Or build manually:
+---
 
-```bash
-# Sandbox image with preinstalled libraries
-docker build -f docker/Dockerfile.sandbox -t aipg-sandbox:latest .
+## ❓ Troubleshooting
 
-# API server image
-docker build -f docker/Dockerfile.api -t aipg-api:latest .
+- Missing LLM key → set `AIPG_LLM_API_KEY` (and `AIPG_LLM_BASE_URL` if not default)
+- CORS from frontend dev → use `VITE_API_BASE=http://localhost:8000`
+- Docker permissions → ensure your user can run `docker` without sudo
+- Sandbox image not found → build it or update `sandbox.docker_image`
 
-# Frontend image
-docker build -f docker/Dockerfile.frontend -t aipg-frontend:latest .
-```
+---
 
-#### Configuration
+## 📜 License
 
-Sandbox settings can be configured in `aipg/configs/default.yaml`:
+Add your license here.
 
-```yaml
-sandbox:
-  docker_image: "aipg-sandbox:latest"  # Custom image with preinstalled libraries
-  memory_limit: "128m"
-  cpu_quota: 0.5
-  pids_limit: 128
-  default_timeout_seconds: 5
-```
+---
 
-Notes:
-- Requires Docker to be installed and the current user able to run `docker`.
-- The adapter runs with `--network none`, `--read-only`, memory/CPU limits, and non-root user.
-- The custom image is based on `python:3.12-slim` for compatibility with all preinstalled libraries.
+## 🙌 Acknowledgments
 
-## 🐳 Docker Deployment
-
-The project includes a complete Docker setup for production deployment:
-
-### Using Docker Compose
-
-```bash
-# Build all images and start services
-docker-compose up --build
-
-# Run in detached mode
-docker-compose up -d --build
-
-# Stop services
-docker-compose down
-```
-
-This will start:
-- **API server** on port 8000
-- **Frontend** on port 80 (nginx)
-- **Sandbox service** (internal)
-
-### Individual Container Usage
-
-```bash
-# Run API server
-docker run -p 8000:8000 aipg-api:latest
-
-# Run frontend
-docker run -p 80:80 aipg-frontend:latest
-
-# Run sandbox (for testing)
-docker run --rm aipg-sandbox:latest python -c "import pandas; print('pandas available')"
-```
-
-## 🎓 About
-
-This project was created as part of the **AI Product Hack track Yandex#6**. It demonstrates practical application of AI in educational technology, specifically for creating personalized learning experiences.
+Created for the AI Product Hack (Yandex #6). Showcases practical AI for personalized learning.
