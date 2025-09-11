@@ -19,6 +19,10 @@
 
 The AI Micro-Project Generator is an intelligent educational tool that transforms error descriptions, learning challenges, or coding issues into **structured, bite-sized learning projects**. Perfect for educators, students, and developers who want to learn from their mistakes through practical, hands-on experience.
 
+
+https://github.com/user-attachments/assets/8882d5fb-5818-487c-8a88-29610b79e405
+
+
 ### ✨ Key Features
 
 - **🎓 Smart Project Generation**: Converts issue descriptions into structured learning tasks
