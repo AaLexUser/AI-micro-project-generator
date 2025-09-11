@@ -200,53 +200,180 @@ langfuse:
 | `AIPG_SANDBOX_DOCKER_IMAGE` | Sandbox Docker image | `aipg-sandbox:latest` |
 | `LANGFUSE_PUBLIC_KEY` | Langfuse public key | - |
 | `LANGFUSE_SECRET_KEY` | Langfuse secret key | - |
+| `LANGFUSE_HOST` | Langfuse host URL | `https://cloud.langfuse.com` |
+| `ENVIRONMENT` | Runtime environment | `production` |
+| `DEBUG` | Debug mode flag | `false` |
+| `LOG_LEVEL` | Logging level | `INFO` |
+
+**Docker Environment Setup:**
+```bash
+# Create .env file for Docker deployment
+cp .env_example .env
+
+# Edit with your API keys
+nano .env
+```
 
 ---
 
 ## 🐳 Docker Deployment
 
-### 🚀 Quick Deployment with Docker Compose
+### 🚀 Quick Deployment
 
+**Production deployment:**
 ```bash
-# Build and start all services
-docker-compose up --build
+# Start all services with health checks and volumes
+docker compose up -d
 
-# Run in background
-docker-compose up -d --build
-
-# Stop services
-docker-compose down
+# Check service health
+docker compose ps
 ```
 
-This starts:
-- **API server** on port 8000
-- **Frontend** on port 80 (nginx)
-- **Sandbox service** (internal)
+**Development with hot reload:**
+```bash
+# Start with development overrides
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 
-### 🔨 Building Individual Images
+# API available at: http://localhost:8000
+# Frontend available at: http://localhost:5173 (dev) or http://localhost:80
+```
+
+**Production with optimizations:**
+```bash
+# Start with production optimizations and scaling
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+### 🏗️ Service Architecture
+
+The deployment includes three interconnected services:
+
+- **🔧 API Service** (port 8000, internal) - FastAPI backend with LLM integrations
+  - Health checks and dependency management
+  - Persistent volumes for data and cache
+  - Non-root user security
+
+- **🎨 Frontend Service** (port 80) - React app with Nginx
+  - SPA routing and API proxy
+  - Gzip compression and security headers
+  - Production-optimized build
+
+- **🛡️ Sandbox Service** (internal) - Secure Python execution environment
+  - Read-only filesystem and dropped capabilities
+  - Network isolation and resource limits
+  - Preinstalled ML libraries (pandas, numpy, torch, etc.)
+
+### 📁 Data Persistence
+
+Volumes are automatically created for:
+- `api_data` - Application data and configurations
+- `cache_data` - ChromaDB vector database and LLM caches
+
+```bash
+# View volumes
+docker volume ls | grep ai-micro-project-generator
+
+# Backup data
+docker run --rm -v ai-micro-project-generator_api_data:/data \
+  -v $(pwd):/backup alpine tar czf /backup/api_backup.tar.gz -C /data .
+```
+
+### 🔧 Docker Compose Files
+
+- **`docker-compose.yml`** - Main configuration with health checks and security
+- **`docker-compose.dev.yml`** - Development overrides with hot reload
+- **`docker-compose.prod.yml`** - Production optimizations and scaling
+- **`DOCKER.md`** - Comprehensive deployment guide
+
+### 🛠️ Build Commands
 
 ```bash
 # Build all images
 make docker-build
 
-# Or build individually
-make docker-build-sandbox    # Custom Python sandbox
-make docker-build-api        # API server
-make docker-build-frontend   # React frontend
+# Build specific services
+docker compose build api
+docker compose build frontend
+docker compose build sandbox
+
+# Force rebuild without cache
+docker compose build --no-cache
 ```
 
-### 🖥️ Manual Docker Commands
+### 🔍 Monitoring & Debugging
 
 ```bash
-# API server
-docker run -p 8000:8000 -e AIPG_LLM_API_KEY=your-key aipg-api:latest
+# View service status and health
+docker compose ps
 
-# Frontend
-docker run -p 80:80 aipg-frontend:latest
+# Stream logs
+docker compose logs -f api
+docker compose logs -f --tail=100
 
-# Test sandbox
-docker run --rm aipg-sandbox:latest python -c "import pandas; print('✅ Libraries ready!')"
+# Access running containers
+docker compose exec api bash
+docker compose exec sandbox python
+
+# Restart services
+docker compose restart api
 ```
+
+### 🚨 Quick Troubleshooting
+
+**Services won't start:**
+```bash
+# Check logs for errors
+docker compose logs api
+docker compose logs frontend
+
+# Verify environment file
+cat .env
+
+# Check port conflicts
+sudo lsof -i :80 -i :8000
+```
+
+**API health check failing:**
+```bash
+# Test API directly
+curl http://localhost:8000/health
+
+# Check API logs
+docker compose logs -f api
+
+# Restart API service
+docker compose restart api
+```
+
+**Frontend not loading:**
+```bash
+# Check nginx configuration
+docker compose exec frontend cat /etc/nginx/conf.d/default.conf
+
+# Test frontend container
+docker compose exec frontend wget -qO- http://localhost/
+```
+
+**Sandbox execution issues:**
+```bash
+# Test sandbox directly
+docker compose exec sandbox python -c "import pandas; print('OK')"
+
+# Check sandbox security settings
+docker compose exec --user root sandbox ls -la /home/sandbox
+```
+
+**Volume permission issues:**
+```bash
+# Fix API data permissions
+docker compose exec --user root api chown -R app:app /app/data
+
+# Reset volumes (⚠️ data loss)
+docker compose down -v
+docker compose up -d
+```
+
+> 📘 **Need more help?** Check the comprehensive [DOCKER.md](DOCKER.md) guide for detailed troubleshooting and configuration options.
 
 ---
 

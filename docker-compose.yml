@@ -5,11 +5,51 @@ services:
       dockerfile: docker/Dockerfile.api
     env_file:
       - .env
+    environment:
+      - PYTHONPATH=/app
+      - AIPG_RAG_CHROMA_PATH=/app/aipg/cache/chroma
+      - AIPG_LLM_CACHE_DIR=/app/aipg/cache/llm
     expose:
       - "8000"
     restart: unless-stopped
     networks:
       - app
+    volumes:
+      - api_data:/app/data
+      - cache_data:/app/aipg/cache
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    user: root  # Need root access for Docker socket
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      sandbox:
+        condition: service_healthy
+
+  sandbox:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.sandbox
+    restart: unless-stopped
+    networks:
+      - app
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+      - /home/sandbox:noexec,nosuid,size=500m
+    healthcheck:
+      test: ["CMD", "python", "-c", "print('healthy')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   frontend:
     build:
@@ -18,12 +58,29 @@ services:
       args:
         - VITE_API_BASE=/api
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     ports:
       - "80:80"
     restart: unless-stopped
     networks:
       - app
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  api_data:
+    driver: local
+  cache_data:
+    driver: local
 
 networks:
-  app: {}
+  app:
+    driver: bridge
+
+# Note: Use docker-compose.dev.yml for development with hot reload
+# Example: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up

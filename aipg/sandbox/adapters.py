@@ -146,3 +146,80 @@ class DockerPythonRunner(SandboxRunner):
         except Exception:
             # Best-effort cleanup
             pass
+
+
+class ComposeDockerRunner(SandboxRunner):
+    """Run untrusted Python code in the existing sandbox container via docker exec.
+
+    This runner is designed for Docker Compose environments where a sandbox
+    container is already running and we need to execute code inside it using
+    docker exec instead of spawning new containers.
+    """
+
+    def __init__(
+        self,
+        container_name: str = "ai-micro-project-generator-sandbox-1",
+        default_timeout_seconds: int = 5,
+    ) -> None:
+        self._container_name = container_name
+        self._default_timeout_seconds = default_timeout_seconds
+
+    async def run(
+        self, code: str, input_data: Optional[str], timeout_seconds: int
+    ) -> SandboxResult:
+        # Encode the code to avoid shell injection issues
+        encoded = base64.b64encode(code.encode("utf-8")).decode("ascii")
+
+        # Create a safe command that decodes and executes the user code
+        python_cmd = f"python -c \"import base64; exec(base64.b64decode('{encoded}').decode('utf-8'))\""
+
+        # Use docker exec to run code in the existing sandbox container
+        docker_cmd = [
+            "docker",
+            "exec",
+            "-i",  # Interactive for stdin
+            "--user",
+            "sandbox",  # Use sandbox user
+            self._container_name,
+            "sh",
+            "-c",
+            python_cmd,
+        ]
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *docker_cmd,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(input=(input_data or "").encode("utf-8")),
+                    timeout=timeout_seconds or self._default_timeout_seconds,
+                )
+                exit_code = await process.wait()
+                return SandboxResult(
+                    stdout=stdout.decode("utf-8", errors="replace"),
+                    stderr=stderr.decode("utf-8", errors="replace"),
+                    exit_code=exit_code,
+                    timed_out=False,
+                )
+            except asyncio.TimeoutError:
+                with contextlib.suppress(Exception):
+                    process.kill()
+                    await process.wait()
+                return SandboxResult(
+                    stdout="",
+                    stderr="Execution timed out",
+                    exit_code=124,
+                    timed_out=True,
+                )
+        except Exception as e:
+            return SandboxResult(
+                stdout="",
+                stderr=f"docker exec failed: {str(e)}",
+                exit_code=1,
+                timed_out=False,
+            )

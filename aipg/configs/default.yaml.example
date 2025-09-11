@@ -9,6 +9,7 @@ llm:
   temperature: 0.5
   caching:
     enabled: true
+    dir_path: ${oc.env:AIPG_LLM_CACHE_DIR, null}
   extra_headers:
     X-Title: AIPG
 langfuse:

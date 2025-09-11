@@ -32,5 +32,5 @@ USER sandbox
 # Set working directory
 WORKDIR /home/sandbox
 
-# Default command
-CMD ["python"]
+# Keep container running (sandbox is used by API service, not standalone)
+CMD ["sleep", "infinity"]
