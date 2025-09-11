@@ -2,8 +2,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from aipg.domain import ProcessTopicAgentState, Topic2Project
 from aipg.exceptions import OutputParserException
-from aipg.state import ProcessTopicAgentState, Topic2Project
 from aipg.task_inference.task_inference import LLMRankerInference
 
 

@@ -17,4 +17,3 @@ class SandboxError(Exception):
 
 class SandboxTimeoutError(SandboxError):
     """Raised when the sandboxed execution times out."""
-

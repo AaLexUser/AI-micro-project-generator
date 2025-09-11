@@ -39,11 +39,21 @@ class RagConfig(BaseModel):
     embedding_api_key: Optional[str] = None
 
 
+class SandboxConfig(BaseModel):
+    docker_image: str = "aipg-sandbox:latest"
+    memory_limit: str = "128m"
+    cpu_quota: Optional[float] = 0.5
+    pids_limit: int = 128
+    default_timeout_seconds: int = 5
+
+
 class AppConfig(BaseModel):
     llm: LLMConfig = Field(default_factory=LLMConfig)
     langfuse: LangfuseConfig = Field(default_factory=LangfuseConfig)
     task_timeout: int = 3600
     time_limit: int = 14400
     project_correction_attempts: int = 3
+    bug_fix_attempts: int = 3
     session_id: str = Field(default_factory=lambda: uuid4().hex)
     rag: RagConfig = RagConfig()
+    sandbox: SandboxConfig = Field(default_factory=SandboxConfig)

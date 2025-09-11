@@ -56,4 +56,3 @@ checks:
     passed: true
     comment: "OK"
 ```
-

@@ -10,7 +10,8 @@ from pydantic import BaseModel
 from aipg.assistant import FeedbackAssistant, ProjectAssistant
 from aipg.configs.app_config import AppConfig
 from aipg.configs.loader import load_config
-from aipg.state import FeedbackAgentState, Project, ProjectsAgentState
+from aipg.domain import FeedbackAgentState, Project, ProjectsAgentState
+from aipg.sandbox.domain import SandboxResult
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,14 @@ class FeedbackRequest(BaseModel):
 
 class FeedbackResponse(BaseModel):
     feedback: str
+    execution_result: Optional["ExecutionResult"] = None
+
+
+class ExecutionResult(BaseModel):
+    stdout: str
+    stderr: str
+    exit_code: int
+    timed_out: bool = False
 
 
 def _generate_projects(
@@ -77,7 +86,7 @@ def _generate_feedback(
     user_solution: str,
     config_path: Optional[str] = None,
     overrides: Optional[List[str]] = None,
-) -> str:
+) -> FeedbackAgentState:
     config: AppConfig = load_config(
         config_path=config_path,
         overrides=overrides,
@@ -86,7 +95,7 @@ def _generate_feedback(
     assistant = FeedbackAssistant(config)
     state = FeedbackAgentState(user_solution=user_solution, project=project)
     state = asyncio.run(assistant.execute(state))
-    return state.feedback
+    return state
 
 
 @app.post("/projects", response_model=List[ProjectResponse])
@@ -104,12 +113,23 @@ def generate_projects(payload: GenerateRequest):
 @app.post("/feedback", response_model=FeedbackResponse)
 def generate_feedback(payload: FeedbackRequest):
     try:
-        feedback = _generate_feedback(
+        state = _generate_feedback(
             project=payload.project,
             user_solution=payload.user_solution,
             overrides=payload.overrides,
         )
-        return FeedbackResponse(feedback=feedback)
+        execution_result: Optional[ExecutionResult] = None
+        if state.execution_result is not None:
+            sr: SandboxResult = state.execution_result
+            execution_result = ExecutionResult(
+                stdout=sr.stdout,
+                stderr=sr.stderr,
+                exit_code=sr.exit_code,
+                timed_out=sr.timed_out,
+            )
+        return FeedbackResponse(
+            feedback=state.feedback, execution_result=execution_result
+        )
     except Exception as e:
         logger.exception("Failed to generate feedback")
         raise HTTPException(status_code=500, detail=str(e))

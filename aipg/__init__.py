@@ -11,7 +11,7 @@ from rich import print as rprint
 from aipg.assistant import ProjectAssistant
 from aipg.configs.app_config import AppConfig
 from aipg.configs.loader import load_config
-from aipg.state import ProjectsAgentState
+from aipg.domain import ProjectsAgentState
 
 
 @dataclass

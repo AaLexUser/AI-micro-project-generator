@@ -3,9 +3,15 @@ from typing import Any, Dict, Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel
 
+from aipg.domain import (
+    FeedbackAgentState,
+    ProcessTopicAgentState,
+    ProjectsAgentState,
+)
 from aipg.exceptions import OutputParserException
 from aipg.llm import LLMClient
 from aipg.prompting.prompt_generator import (
+    BugFixerPromptGenerator,
     DefineTopicsPromptGenerator,
     FeedbackPromptGenerator,
     LLMRankerPromptGenerator,
@@ -16,11 +22,7 @@ from aipg.prompting.prompt_generator import (
 )
 from aipg.prompting.utils import format_project_validation_result_yaml
 from aipg.rag.service import RagService
-from aipg.state import (
-    FeedbackAgentState,
-    ProcessTopicAgentState,
-    ProjectsAgentState,
-)
+from aipg.sandbox.service import PythonSandboxService
 
 StateT = TypeVar("StateT", bound=BaseModel)
 
@@ -186,6 +188,8 @@ class FeedbackInference(TaskInference[FeedbackAgentState]):
             project_description=state.project.description,
             project_input=state.project.input_data,
             project_output=state.project.expected_output,
+            project_autotest=state.project.autotest,
+            execution_result=state.execution_result,
         )
         chat_prompt = self.prompt_generator.generate_chat_prompt()
         response = await self.llm.query(chat_prompt)
@@ -328,7 +332,7 @@ class ProjectValidatorInference(TaskInference[ProcessTopicAgentState]):
         if state.project is None:
             logger.warning("No project available for validation")
             return state
-        
+
         self.prompt_generator = ProjectValidatorPromptGenerator(
             project_markdown=state.project.raw_markdown
         )
@@ -387,13 +391,15 @@ class ProjectCorrectorInference(TaskInference[ProcessTopicAgentState]):
         if state.project is None or state.validation_result is None:
             logger.warning("No project or validation result available for correction")
             return state
-        
+
         # Prepare a YAML report from validation_result for the corrector LLM
-        validation_report = format_project_validation_result_yaml(state.validation_result)
+        validation_report = format_project_validation_result_yaml(
+            state.validation_result
+        )
 
         self.prompt_generator = ProjectCorrectorPromptGenerator(
             source_project=state.project.raw_markdown,
-            validation_report=validation_report
+            validation_report=validation_report,
         )
         chat_prompt = self.prompt_generator.generate_chat_prompt()
         last_exception: OutputParserException | None = None
@@ -431,4 +437,115 @@ class ProjectCorrectorInference(TaskInference[ProcessTopicAgentState]):
                     "Project corrector parsing failed with no additional context"
                 )
             )
+        return state
+
+
+class CheckAutotestSandboxInference(TaskInference[ProcessTopicAgentState]):
+    def __init__(
+        self, llm: LLMClient, sandbox_service: PythonSandboxService, *args, **kwargs
+    ):
+        super().__init__(llm, *args, **kwargs)
+        self.sandbox_service = sandbox_service
+
+    def initialize_task(self, state: ProcessTopicAgentState):
+        super().initialize_task(state)
+
+    async def transform(self, state: ProcessTopicAgentState) -> ProcessTopicAgentState:
+        self.initialize_task(state)
+        if state.project is not None:
+            code = state.project.autotest.replace(
+                "{STUDENT_SOLUTION}", state.project.expert_solution
+            )
+            result = await self.sandbox_service.run_code(code)
+            state.execution_result = result
+        return state
+
+
+class BugFixerInference(TaskInference[ProcessTopicAgentState]):
+    def initialize_task(self, state: ProcessTopicAgentState):
+        super().initialize_task(state)
+
+    async def transform(self, state: ProcessTopicAgentState) -> ProcessTopicAgentState:
+        self.initialize_task(state)
+        if state.project is None or state.execution_result is None:
+            logger.warning("No project or execution result available for bug fixing")
+            return state
+
+        # Check if there are any errors to fix
+        if (
+            state.execution_result.exit_code == 0
+            and not state.execution_result.timed_out
+        ):
+            logger.info("No errors detected in execution result, skipping bug fixing")
+            return state
+
+        logger.info("Bug fixing initiated for project with execution errors")
+        logger.debug(
+            f"Execution result: exit_code={state.execution_result.exit_code}, "
+            f"timed_out={state.execution_result.timed_out}, "
+            f"stderr={state.execution_result.stderr}"
+        )
+
+        self.prompt_generator = BugFixerPromptGenerator(
+            project_markdown=state.project.raw_markdown,
+            sandbox_result=state.execution_result,
+        )
+        chat_prompt = self.prompt_generator.generate_chat_prompt()
+        last_exception: OutputParserException | None = None
+        for attempt in range(1, 4):
+            response = await self.llm.query(chat_prompt)
+            try:
+                fixed_project = self.prompt_generator.parser(response)
+                state.project = fixed_project
+                logger.info("Bug fixing completed successfully")
+                break
+            except OutputParserException as e:
+                last_exception = e
+                error_feedback = (
+                    f"Parsing error: {e}\n\n"
+                    "IMPORTANT: Return ONLY the corrected project markdown without any additional explanations, "
+                    "comments, or code blocks. Start directly with '# Микропроект для углубления темы:' "
+                    "and provide the complete corrected project in the same format as the original."
+                )
+                chat_prompt.extend(
+                    [
+                        {"role": "assistant", "content": response or ""},
+                        {"role": "user", "content": error_feedback},
+                    ]
+                )
+                logger.warning(
+                    f"Bug fixer parse failed on attempt {attempt}/3; adding error to context and retrying: {e}"
+                )
+        else:
+            logger.error(
+                f"Failed to parse bug fixer response after 3 attempts: {last_exception}"
+            )
+            raise (
+                last_exception
+                if last_exception
+                else OutputParserException(
+                    "Bug fixer parsing failed with no additional context"
+                )
+            )
+        return state
+
+
+class CheckUserSolutionSandboxInference(TaskInference[FeedbackAgentState]):
+    def __init__(
+        self, llm: LLMClient, sandbox_service: PythonSandboxService, *args, **kwargs
+    ):
+        super().__init__(llm, *args, **kwargs)
+        self.sandbox_service = sandbox_service
+
+    def initialize_task(self, state: FeedbackAgentState):
+        super().initialize_task(state)
+
+    async def transform(self, state: FeedbackAgentState) -> FeedbackAgentState:
+        self.initialize_task(state)
+        if state.project is not None:
+            code = state.project.autotest.replace(
+                "{STUDENT_SOLUTION}", state.user_solution
+            )
+            result = await self.sandbox_service.run_code(code)
+            state.execution_result = result
         return state

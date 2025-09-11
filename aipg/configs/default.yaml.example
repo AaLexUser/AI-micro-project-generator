@@ -23,3 +23,9 @@ rag:
   embedding_model: ${oc.env:AIPG_RAG_EMBEDDING_MODEL, gemini-embedding-001}
   embedding_base_url: ${oc.env:AIPG_RAG_EMBEDDING_BASE_URL, null}
   embedding_api_key: ${oc.env:AIPG_RAG_EMBEDDING_API_KEY, null}
+sandbox:
+  docker_image: ${oc.env:AIPG_SANDBOX_DOCKER_IMAGE, aipg-sandbox:latest}
+  memory_limit: ${oc.env:AIPG_SANDBOX_MEMORY_LIMIT, 128m}
+  cpu_quota: ${oc.env:AIPG_SANDBOX_CPU_QUOTA, 0.5}
+  pids_limit: ${oc.env:AIPG_SANDBOX_PIDS_LIMIT, 128}
+  default_timeout_seconds: ${oc.env:AIPG_SANDBOX_DEFAULT_TIMEOUT_SECONDS, 5}

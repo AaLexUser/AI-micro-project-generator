@@ -10,6 +10,7 @@ from aipg.prompting.utils import (
     parse_project_markdown,
     parse_project_validator_yaml,
 )
+from aipg.sandbox.domain import SandboxResult
 
 
 class PromptGenerator(ABC):
@@ -97,12 +98,16 @@ class FeedbackPromptGenerator(PromptGenerator):
         project_description: str,
         project_input: str,
         project_output: str,
+        project_autotest: str,
+        execution_result: SandboxResult | None,
     ):
         self.user_solution = user_solution
         self.project_goal = project_goal
         self.project_description = project_description
         self.project_input = project_input
         self.project_output = project_output
+        self.project_autotest = project_autotest
+        self.execution_result = execution_result
         super().__init__()
 
     @property
@@ -110,6 +115,18 @@ class FeedbackPromptGenerator(PromptGenerator):
         return self.load_from_file(Path(PACKAGE_PATH) / "prompting" / "feedback.md")
 
     def generate_prompt(self) -> str:
+        if self.execution_result is None:
+            execution_section = (
+                "stdout:\n\n\nstderr:\n\n\nexit_code: N/A\nis_timed_out: N/A"
+            )
+        else:
+            execution_section = (
+                f"stdout:\n{self.execution_result.stdout}\n\n"
+                f"stderr:\n{self.execution_result.stderr}\n\n"
+                f"exit_code: {self.execution_result.exit_code}\n"
+                f"is_timed_out: {self.execution_result.timed_out}"
+            )
+
         return (
             f"[Код студента]:\n<student_solution>\n{self.user_solution}\n</student_solution>\n\n"
             "--------------------------------\n\n"
@@ -118,6 +135,9 @@ class FeedbackPromptGenerator(PromptGenerator):
             f"[Описание задания]:\n<project_description>\n{self.project_description}\n</project_description>\n"
             f"[Входные данные]:\n<project_input>\n{self.project_input}\n</project_input>\n"
             f"[Ожидаемый результат]:\n<project_output>\n{self.project_output}\n</project_output>\n"
+            f"[Код автотеста]:\n<project_autotest>\n{self.project_autotest}\n</project_autotest>\n"
+            f"[Результат выполнения кода студента]:\n\n"
+            f"{execution_section}"
         )
 
     def create_parser(self):
@@ -183,6 +203,30 @@ class ProjectCorrectorPromptGenerator(PromptGenerator):
         return (
             f"[Исходный микропроект]:\n\n---\n\n{self.source_project}\n\n---\n\n"
             f"[Отчет валидатора]:\n\n---\n\n{self.validation_report}\n\n---"
+        )
+
+    def create_parser(self):
+        return parse_project_markdown
+
+
+class BugFixerPromptGenerator(PromptGenerator):
+    def __init__(self, project_markdown: str, sandbox_result: SandboxResult):
+        self.project_markdown = project_markdown
+        self.sandbox_result = sandbox_result
+        super().__init__()
+
+    @property
+    def system_prompt(self):
+        return self.load_from_file(Path(PACKAGE_PATH) / "prompting" / "bug_fixer.md")
+
+    def generate_prompt(self) -> str:
+        return (
+            f"[Микропроект для исправления]:\n\n---\n\n{self.project_markdown}\n\n---\n\n"
+            f"[Результаты выполнения]:\n\n"
+            f"stdout:\n{self.sandbox_result.stdout}\n\n"
+            f"stderr:\n{self.sandbox_result.stderr}\n\n"
+            f"exit_code: {self.sandbox_result.exit_code}\n"
+            f"is_timed_out: {self.sandbox_result.timed_out}"
         )
 
     def create_parser(self):

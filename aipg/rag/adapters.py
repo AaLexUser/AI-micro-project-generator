@@ -1,5 +1,5 @@
 import logging
-from typing import List, Mapping, Optional, Sequence, Union, cast
+from typing import Any, List, Mapping, Optional, Sequence, Union
 
 from aipg.exceptions import OutputParserException
 from aipg.prompting.utils import parse_project_markdown
@@ -12,7 +12,6 @@ except ImportError:
 
 try:
     from google import genai
-    from google.genai import Client
 except ImportError:
     genai = None  # type: ignore
 
@@ -182,6 +181,7 @@ class GeminiEmbeddingAdapter(EmbeddingPort):
         model_name: str = "gemini-embedding-001",
         client: Optional[object] = None,
     ) -> None:
+        self.client: Any
         if client is not None:
             self.client = client
         else:
@@ -196,7 +196,6 @@ class GeminiEmbeddingAdapter(EmbeddingPort):
             return []
         if genai is None:
             raise ImportError("Genai not available")
-        self.client = cast(Client, self.client)
 
         # Use the async aio module for embedding
         try:

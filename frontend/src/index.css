@@ -47,6 +47,83 @@
   background-size: 200px 100%;
 }
 
+/* Success celebration animations */
+@keyframes confetti {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+@keyframes success-bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  40% {
+    transform: translateY(-20px) scale(1.05);
+  }
+  60% {
+    transform: translateY(-10px) scale(1.02);
+  }
+}
+
+@keyframes success-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 20px rgba(34, 197, 94, 0);
+  }
+}
+
+@keyframes success-slide-up {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-confetti {
+  animation: confetti linear forwards;
+}
+
+.animate-success-bounce {
+  animation: success-bounce 1s ease-in-out;
+}
+
+.animate-success-pulse {
+  animation: success-pulse 2s infinite;
+}
+
+.animate-success-slide-up {
+  animation: success-slide-up 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+/* Completed project card glow effect */
+@keyframes success-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(34, 197, 94, 0.5);
+  }
+}
+
+.animate-success-glow {
+  animation: success-glow 2s ease-in-out infinite;
+}
+
 /* Focus styles */
 .focus-ring {
   @apply focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary;
@@ -54,33 +131,33 @@
 
 /* Custom button styles */
 .btn-primary {
-  @apply bg-gradient-to-r from-primary via-purple-600 to-cyan-500 hover:from-purple-700 hover:via-purple-800 hover:to-cyan-600 text-white font-medium rounded-xl px-6 py-2.5 transition-all duration-300 focus-ring shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98];
+  @apply bg-gradient-to-r from-primary via-primary/90 to-primary/80 hover:from-primary/90 hover:via-primary/80 hover:to-primary/70 text-primary-foreground font-medium rounded-xl px-6 py-2.5 transition-all duration-300 focus-ring shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98];
 }
 
 .btn-secondary {
-  @apply bg-gradient-to-r from-white to-blue-50/50 hover:from-blue-50 hover:to-purple-50/50 text-primary font-medium rounded-xl px-6 py-2.5 border border-primary/20 hover:border-primary/40 transition-all duration-300 focus-ring shadow-md hover:shadow-lg;
+  @apply bg-gradient-to-r from-secondary to-secondary/80 hover:from-secondary/80 hover:to-secondary/60 text-secondary-foreground font-medium rounded-xl px-6 py-2.5 border border-border hover:border-border/60 transition-all duration-300 focus-ring shadow-md hover:shadow-lg;
 }
 
 .btn-ghost {
-  @apply bg-transparent hover:bg-gradient-to-r hover:from-primary/10 hover:to-cyan/10 text-primary hover:text-primary font-medium rounded-xl px-4 py-2 transition-all duration-200 focus-ring;
+  @apply bg-transparent hover:bg-gradient-to-r hover:from-primary/10 hover:to-primary/5 text-primary hover:text-primary font-medium rounded-xl px-4 py-2 transition-all duration-200 focus-ring;
 }
 
 /* Card styles */
 .card {
-  @apply bg-gradient-to-br from-white via-blue-50/20 to-purple-50/10 rounded-2xl border border-primary/10 shadow-card hover:shadow-card-hover hover:shadow-primary/5 transition-all duration-300;
+  @apply bg-gradient-to-br from-card via-muted/20 to-muted/10 rounded-2xl border border-border shadow-card hover:shadow-card-hover hover:shadow-primary/5 transition-all duration-300;
 }
 
 .card-elevated {
-  @apply bg-gradient-to-br from-white via-blue-50/30 to-purple-50/20 rounded-2xl border border-primary/15 shadow-card-lg hover:shadow-xl hover:shadow-primary/10 transition-all duration-300;
+  @apply bg-gradient-to-br from-card via-muted/30 to-muted/20 rounded-2xl border border-border shadow-card-lg hover:shadow-xl hover:shadow-primary/10 transition-all duration-300;
 }
 
 /* Input styles */
 .input {
-  @apply w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 placeholder-gray-500 focus-ring transition-colors duration-200;
+  @apply w-full rounded-xl border border-input px-4 py-3 text-foreground placeholder-muted-foreground focus-ring transition-colors duration-200;
 }
 
 .textarea {
-  @apply w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 placeholder-gray-500 focus-ring transition-colors duration-200 resize-none;
+  @apply w-full rounded-xl border border-input px-4 py-3 text-foreground placeholder-muted-foreground focus-ring transition-colors duration-200 resize-none;
 }
 
 /* Loading states */
@@ -89,7 +166,7 @@
 }
 
 .pulse-border {
-  @apply animate-pulse-subtle border-brand-200;
+  @apply animate-pulse-subtle border-primary/20;
 }
 
 
@@ -99,81 +176,81 @@
     /* Beautiful gradient background */
     --background: 216 100% 98%;
     --foreground: 230 15% 15%;
-    
+
     /* Cards with subtle tint */
     --card: 0 0% 100%;
     --card-foreground: 230 15% 15%;
-    
+
     /* Popovers */
     --popover: 0 0% 100%;
     --popover-foreground: 230 15% 15%;
-    
-    /* Primary - vibrant blue-purple */
-    --primary: 252 83% 57%;
+
+    /* Primary - warm orange (#E67145) */
+    --primary: 16 80% 60%;
     --primary-foreground: 0 0% 98%;
-    
+
     /* Secondary - soft lavender */
     --secondary: 252 30% 95%;
     --secondary-foreground: 252 20% 25%;
-    
+
     /* Muted - light purple-gray */
     --muted: 252 15% 96%;
     --muted-foreground: 252 8% 45%;
-    
-    /* Accent - bright cyan-blue */
-    --accent: 199 89% 48%;
+
+    /* Accent - warm orange (#E67145) */
+    --accent: 16 80% 60%;
     --accent-foreground: 0 0% 98%;
-    
+
     /* Destructive - warm red */
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    
+
     /* Borders - subtle purple tint */
     --border: 252 20% 88%;
     --input: 252 15% 92%;
-    --ring: 252 83% 57%;
-    
+    --ring: 16 80% 60%;
+
     /* Charts - vibrant and diverse */
-    --chart-1: 252 83% 57%;
+    --chart-1: 16 80% 60%;
     --chart-2: 199 89% 48%;
     --chart-3: 142 76% 36%;
     --chart-4: 38 92% 50%;
     --chart-5: 320 65% 52%;
-    
+
     --radius: 0.75rem;
   }
-  
+
   .dark {
     /* Dark mode with deep blues and purples */
     --background: 230 25% 8%;
     --foreground: 0 0% 95%;
-    
+
     --card: 230 20% 10%;
     --card-foreground: 0 0% 95%;
-    
+
     --popover: 230 20% 10%;
     --popover-foreground: 0 0% 95%;
-    
-    --primary: 252 83% 65%;
+
+    --primary: 16 80% 65%;
     --primary-foreground: 230 25% 8%;
-    
+
     --secondary: 230 15% 18%;
     --secondary-foreground: 0 0% 85%;
-    
+
     --muted: 230 15% 15%;
     --muted-foreground: 0 0% 65%;
-    
-    --accent: 199 89% 55%;
+
+    --accent: 16 80% 65%;
     --accent-foreground: 230 25% 8%;
-    
+
     --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 98%;
-    
+
     --border: 230 15% 18%;
     --input: 230 15% 15%;
-    --ring: 252 83% 65%;
-    
-    --chart-1: 252 83% 65%;
+    --ring: 16 80% 65%;
+
+    --chart-1: 16 80% 65%;
     --chart-2: 199 89% 55%;
     --chart-3: 142 76% 45%;
     --chart-4: 38 92% 60%;
@@ -188,7 +265,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-gradient-to-br from-background via-blue-50/30 to-purple-50/20 text-foreground;
+    @apply bg-gradient-to-br from-background via-muted/30 to-muted/20 text-foreground;
     background-attachment: fixed;
   }
 }

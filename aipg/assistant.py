@@ -5,15 +5,18 @@ from typing import Generic, List, Type, TypeVar
 from pydantic import BaseModel
 
 from aipg.configs.app_config import AppConfig
-from aipg.llm import LLMClient
-from aipg.rag.rag_builder import build_rag_service
-from aipg.state import (
+from aipg.domain import (
     FeedbackAgentState,
     ProcessTopicAgentState,
     ProjectsAgentState,
     Topic2Project,
 )
+from aipg.llm import LLMClient
+from aipg.rag.rag_builder import build_rag_service
+from aipg.sandbox.builder import build_sandbox_service
 from aipg.task_inference import (
+    BugFixerInference,
+    CheckAutotestSandboxInference,
     DefineTopicsInference,
     FeedbackInference,
     LLMRankerInference,
@@ -21,7 +24,11 @@ from aipg.task_inference import (
     RAGServiceInference,
     TaskInference,
 )
-from aipg.task_inference.task_inference import ProjectCorrectorInference, ProjectValidatorInference
+from aipg.task_inference.task_inference import (
+    CheckUserSolutionSandboxInference,
+    ProjectCorrectorInference,
+    ProjectValidatorInference,
+)
 
 StateT = TypeVar("StateT", bound=BaseModel)
 
@@ -41,7 +48,16 @@ class BaseAssistant(Generic[StateT]):
     ) -> StateT:
         for inference_class in task_inferences:
             logger.debug("Running task inference: %s", inference_class.__name__)
-            inference = inference_class(llm=self.llm)
+            # Special handling for inferences that require sandbox_service
+            if hasattr(self, "sandbox_service") and inference_class.__name__ in [
+                "CheckUserSolutionSandboxInference",
+                "CheckAutotestSandboxInference",
+            ]:
+                inference = inference_class(
+                    llm=self.llm, sandbox_service=self.sandbox_service
+                )
+            else:
+                inference = inference_class(llm=self.llm)
             try:
                 state = await inference.transform(state)
             except Exception as e:
@@ -59,6 +75,7 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
     def __init__(self, config: AppConfig) -> None:
         super().__init__(config)
         self.rag_service = build_rag_service(config)
+        self.sandbox_service = build_sandbox_service(config)
 
     async def process_topic(self, topic: str) -> ProcessTopicAgentState:
         """Search for projects for a single topic using RAG service and LLM ranking."""
@@ -72,6 +89,10 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
         project_generation_inference = ProjectGenerationInference(llm=self.llm)
         project_validator_inference = ProjectValidatorInference(llm=self.llm)
         project_corrector_inference = ProjectCorrectorInference(llm=self.llm)
+        check_autotest_inference = CheckAutotestSandboxInference(
+            llm=self.llm, sandbox_service=self.sandbox_service
+        )
+        bug_fixer_inference = BugFixerInference(llm=self.llm)
 
         # Run RAG service inference to get candidates
         state = await rag_inference.transform(state)
@@ -85,42 +106,103 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
             if state.project:
                 previous_version = state.project
                 for attempt in range(1, self.config.project_correction_attempts + 1):
-                    logger.info(f"Project correction attempt {attempt}/{self.config.project_correction_attempts}")
+                    logger.info(
+                        f"Project correction attempt {attempt}/{self.config.project_correction_attempts}"
+                    )
                     state = await project_validator_inference.transform(state)
                     if state.validation_result and not state.validation_result.is_valid:
                         logger.info("Project validation failed, correcting...")
                         state = await project_corrector_inference.transform(state)
                         if not state.project:
                             state.project = previous_version
-                            logger.info("Project correction failed, using previous version")
+                            logger.info(
+                                "Project correction failed, using previous version"
+                            )
                             break
                     else:
                         break
                 if not state.project:
                     state.project = previous_version
-                
+
                 # Only run final validation if we don't already have a valid result
                 if not state.validation_result or not state.validation_result.is_valid:
                     logger.info("Running final validation before persisting project")
                     state = await project_validator_inference.transform(state)
-                    
+
                     # Check final validation result and revert if invalid
-                    if not state.validation_result or not state.validation_result.is_valid:
-                        logger.warning("Final validation failed, reverting to previous version")
+                    if (
+                        not state.validation_result
+                        or not state.validation_result.is_valid
+                    ):
+                        logger.warning(
+                            "Final validation failed, reverting to previous version"
+                        )
                         state.project = previous_version
-                        state.validation_result = None  # Clear invalid validation result
+                        state.validation_result = (
+                            None  # Clear invalid validation result
+                        )
                     else:
-                        logger.info("Final validation successful, project ready for persistence")
+                        logger.info(
+                            "Final validation successful, project ready for persistence"
+                        )
                 else:
-                    logger.info("Project already validated successfully, skipping final validation")
-                    
+                    logger.info(
+                        "Project already validated successfully, skipping final validation"
+                    )
+
+            # Run autotest and bug fixing if project is valid
+            if (
+                state.project
+                and state.validation_result
+                and state.validation_result.is_valid
+            ):
+                logger.info("Project is valid, running autotest and bug fixing")
+
+                # Run autotest to check for bugs
+                state = await check_autotest_inference.transform(state)
+
+                # Try to fix bugs if any are found
+                for attempt in range(1, self.config.bug_fix_attempts + 1):
+                    if state.execution_result and (
+                        state.execution_result.exit_code != 0
+                        or state.execution_result.timed_out
+                    ):
+                        logger.info(
+                            f"Bugs detected, running bug fixer attempt {attempt}/{self.config.bug_fix_attempts}"
+                        )
+                        state = await bug_fixer_inference.transform(state)
+
+                        # Re-run autotest to check if bugs are fixed
+                        state = await check_autotest_inference.transform(state)
+
+                        # If no more bugs, break out of the loop
+                        if (
+                            state.execution_result
+                            and state.execution_result.exit_code == 0
+                            and not state.execution_result.timed_out
+                        ):
+                            logger.info("All bugs fixed successfully")
+                            break
+                    else:
+                        logger.info("No bugs detected, skipping bug fixing")
+                        break
+                else:
+                    logger.warning(
+                        f"Could not fix all bugs after {self.config.bug_fix_attempts} attempts"
+                    )
+
             # Only save if project is present and validation passed
-            if state.project and state.validation_result and state.validation_result.is_valid:
+            if (
+                state.project
+                and state.validation_result
+                and state.validation_result.is_valid
+            ):
                 await self.rag_service.save(state.topic, state.project)
                 logger.info(f"Project successfully saved for topic: {state.topic}")
             elif state.project:
-                logger.warning(f"Project exists but validation failed, not saving for topic: {state.topic}")
-            
+                logger.warning(
+                    f"Project exists but validation failed, not saving for topic: {state.topic}"
+                )
 
         return state
 
@@ -169,8 +251,13 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
 
 
 class FeedbackAssistant(BaseAssistant[FeedbackAgentState]):
+    def __init__(self, config: AppConfig) -> None:
+        super().__init__(config)
+        self.sandbox_service = build_sandbox_service(config)
+
     async def execute(self, state: FeedbackAgentState) -> FeedbackAgentState:
         task_inferences: List[Type[TaskInference[FeedbackAgentState]]] = [
+            CheckUserSolutionSandboxInference,
             FeedbackInference,
         ]
         return await self._run_task_inference(task_inferences, state)

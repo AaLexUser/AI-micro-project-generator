@@ -5,11 +5,11 @@ import re
 from typing import Any, Dict, Iterable, Optional
 
 import json_repair
-from pydantic import ValidationError
 import yaml
+from pydantic import ValidationError
 
+from aipg.domain import Project, ProjectValidationResult
 from aipg.exceptions import OutputParserException
-from aipg.state import Project, ProjectValidationResult
 
 logger = logging.getLogger(__name__)
 

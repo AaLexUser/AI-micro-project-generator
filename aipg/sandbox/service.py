@@ -17,13 +17,21 @@ class PythonSandboxService:
         self._runner = runner
         self._default_timeout_seconds = default_timeout_seconds
 
-    def run_code(self, code: str, input_data: Optional[str] = None, timeout_seconds: Optional[int] = None) -> SandboxResult:
+    async def run_code(
+        self,
+        code: str,
+        input_data: Optional[str] = None,
+        timeout_seconds: Optional[int] = None,
+    ) -> SandboxResult:
         if not isinstance(code, str) or code.strip() == "":
             raise ValueError("code must be a non-empty string")
 
         effective_timeout = (
-            self._default_timeout_seconds if timeout_seconds is None else int(timeout_seconds)
+            self._default_timeout_seconds
+            if timeout_seconds is None
+            else int(timeout_seconds)
         )
 
-        return self._runner.run(code=code, input_data=input_data, timeout_seconds=effective_timeout)
-
+        return await self._runner.run(
+            code=code, input_data=input_data, timeout_seconds=effective_timeout
+        )

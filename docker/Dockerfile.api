@@ -38,4 +38,3 @@ RUN if [ -f "/app/aipg/configs/default.yaml.example" ] && [ ! -f "/app/aipg/conf
 USER app
 EXPOSE 8000
 CMD ["python", "-m", "aipg.api"]
-
