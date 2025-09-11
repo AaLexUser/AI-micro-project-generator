@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Play, Loader2, CheckCircle, FileText, Target, Database, Eye } from 'lucide-react';
+import { ArrowLeft, Play, Loader2, CheckCircle, FileText, Target, Database, Eye, Terminal, AlertCircle, Clock, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
+import { SuccessCelebration } from '../components/SuccessCelebration';
+import { CodeEditor } from '../components/CodeEditor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import type { Project } from '../types';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import type { Project, ExecutionResult, ProjectStatus } from '../types';
 
 function usePersistentState<T>(key: string, initial: T) {
   const [value, setValue] = useState<T>(() => {
@@ -24,14 +26,19 @@ function usePersistentState<T>(key: string, initial: T) {
 export function ProjectDetailPage() {
   const params = useParams<{ idx: string }>();
   const navigate = useNavigate();
-  const [projects] = usePersistentState<Project[]>('aipg:projects', []);
+  const [projects, setProjects] = usePersistentState<Project[]>('aipg:projects', []);
   const idx = useMemo(() => Number(params.idx ?? '-1'), [params.idx]);
   const project = projects[idx];
 
   const [code, setCode] = usePersistentState<string>(`aipg:code:${idx}`, '');
+  const [codeLanguage, setCodeLanguage] = usePersistentState<string>(`aipg:codeLanguage:${idx}`, 'javascript');
   const [feedback, setFeedback] = usePersistentState<string>(`aipg:feedback:${idx}`, '');
+  const [executionResult, setExecutionResult] = usePersistentState<ExecutionResult | null>(`aipg:execution:${idx}`, null);
+  const [projectStatus, setProjectStatus] = useState<ProjectStatus>(() => api.getProjectStatus(idx));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [showSuccessCelebration, setShowSuccessCelebration] = useState(false);
 
   useEffect(() => {
     if (!project) {
@@ -46,6 +53,19 @@ export function ProjectDetailPage() {
       setError(null);
       const res = await api.getFeedback({ project, user_solution: code });
       setFeedback(res.feedback);
+      setExecutionResult(res.execution_result || null);
+
+      // Update project status based on execution result
+      if (res.execution_result?.exit_code === 0) {
+        const newStatus: ProjectStatus = 'completed';
+        setProjectStatus(newStatus);
+        api.setProjectStatus(idx, newStatus);
+        setShowSuccessCelebration(true);
+      } else if (code.trim()) {
+        const newStatus: ProjectStatus = 'in_progress';
+        setProjectStatus(newStatus);
+        api.setProjectStatus(idx, newStatus);
+      }
     } catch (e: any) {
       setError(e?.message ?? 'Failed to get feedback');
     } finally {
@@ -53,21 +73,76 @@ export function ProjectDetailPage() {
     }
   }
 
+  function handleDeleteProject() {
+    if (idx >= 0 && idx < projects.length) {
+      api.deleteProject(idx);
+      // Force a re-read from localStorage by updating the state
+      const updatedProjects = JSON.parse(localStorage.getItem('aipg:projects') || '[]');
+      setProjects(updatedProjects);
+      setDeleteDialogOpen(false);
+      navigate('/');
+    }
+  }
+
   if (!project) return null;
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8 space-y-8 animate-fade-in">
+    <>
+      <SuccessCelebration
+        isVisible={showSuccessCelebration}
+        onAnimationComplete={() => setShowSuccessCelebration(false)}
+      />
+      <div className="mx-auto max-w-6xl px-6 py-8 space-y-8 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
         <Button variant="ghost" asChild>
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2 text-primary">
             <ArrowLeft className="w-4 h-4" />
             Back to Projects
           </Link>
         </Button>
-        <Badge variant="outline">
-          Project #{idx + 1}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline">
+            Project #{idx + 1}
+          </Badge>
+          {projectStatus === 'completed' && (
+            <Badge className="bg-green-100 text-green-800 border-green-200 flex items-center gap-1">
+              <CheckCircle className="w-3 h-3" />
+              Completed
+            </Badge>
+          )}
+          {projectStatus === 'in_progress' && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <Play className="w-3 h-3" />
+              In Progress
+            </Badge>
+          )}
+          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="destructive" size="sm" className="flex items-center gap-2">
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete Project</DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to delete this project? This action cannot be undone.
+                  All your code, feedback, and execution results for this project will be permanently removed.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={handleDeleteProject}>
+                  Delete Project
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Project Overview */}
@@ -140,10 +215,12 @@ export function ProjectDetailPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Textarea
+          <CodeEditor
             value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className="h-80 font-mono text-sm"
+            onChange={setCode}
+            language={codeLanguage}
+            onLanguageChange={setCodeLanguage}
+            className="h-80"
             placeholder="Write your solution here...
 
 // Example:
@@ -191,6 +268,83 @@ function solve(input) {
         </CardContent>
       </Card>
 
+      {/* Execution Results Section */}
+      {executionResult && (
+        <Card className={executionResult.exit_code === 0 ? "border-green-200 bg-gradient-to-r from-green-50 to-emerald-50" : ""}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${executionResult.exit_code === 0 ? "bg-green-100" : "bg-purple-100"}`}>
+                <Terminal className={`w-5 h-5 ${executionResult.exit_code === 0 ? "text-green-600" : "text-purple-600"}`} />
+              </div>
+              Execution Results
+              <div className="flex items-center gap-2 ml-auto">
+                <Badge
+                  variant={executionResult.exit_code === 0 ? "default" : "destructive"}
+                  className={`flex items-center gap-1 ${executionResult.exit_code === 0 ? "bg-green-100 text-green-800 border-green-200" : ""}`}
+                >
+                  {executionResult.exit_code === 0 ? (
+                    <CheckCircle className="w-3 h-3" />
+                  ) : (
+                    <AlertCircle className="w-3 h-3" />
+                  )}
+                  Exit Code: {executionResult.exit_code}
+                </Badge>
+                {executionResult.timed_out && (
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Timed Out
+                  </Badge>
+                )}
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {executionResult.exit_code === 0 && (
+              <Card className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3 text-green-800">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                    <div>
+                      <h4 className="font-semibold">🎉 Success! Your solution is working perfectly!</h4>
+                      <p className="text-sm text-green-700">All tests passed and your code executed without errors.</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {executionResult.stdout && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium text-green-700">Standard Output</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <pre className="text-sm bg-green-50 p-4 rounded-lg overflow-x-auto border border-green-200">
+                    <code>{executionResult.stdout}</code>
+                  </pre>
+                </CardContent>
+              </Card>
+            )}
+            {executionResult.stderr && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium text-red-700">Standard Error</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <pre className="text-sm bg-red-50 p-4 rounded-lg overflow-x-auto border border-red-200">
+                    <code>{executionResult.stderr}</code>
+                  </pre>
+                </CardContent>
+              </Card>
+            )}
+            {!executionResult.stdout && !executionResult.stderr && (
+              <div className="text-center py-4 text-muted-foreground">
+                No output captured
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Feedback Section */}
       <Card>
         <CardHeader>
@@ -221,6 +375,7 @@ function solve(input) {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   );
 }

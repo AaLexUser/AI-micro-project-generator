@@ -188,6 +188,8 @@ class FeedbackInference(TaskInference[FeedbackAgentState]):
             project_description=state.project.description,
             project_input=state.project.input_data,
             project_output=state.project.expected_output,
+            project_autotest=state.project.autotest,
+            execution_result=state.execution_result,
         )
         chat_prompt = self.prompt_generator.generate_chat_prompt()
         response = await self.llm.query(chat_prompt)
@@ -525,4 +527,25 @@ class BugFixerInference(TaskInference[ProcessTopicAgentState]):
                     "Bug fixer parsing failed with no additional context"
                 )
             )
+        return state
+
+
+class CheckUserSolutionSandboxInference(TaskInference[FeedbackAgentState]):
+    def __init__(
+        self, llm: LLMClient, sandbox_service: PythonSandboxService, *args, **kwargs
+    ):
+        super().__init__(llm, *args, **kwargs)
+        self.sandbox_service = sandbox_service
+
+    def initialize_task(self, state: FeedbackAgentState):
+        super().initialize_task(state)
+
+    async def transform(self, state: FeedbackAgentState) -> FeedbackAgentState:
+        self.initialize_task(state)
+        if state.project is not None:
+            code = state.project.autotest.replace(
+                "{STUDENT_SOLUTION}", state.user_solution
+            )
+            result = await self.sandbox_service.run_code(code)
+            state.execution_result = result
         return state

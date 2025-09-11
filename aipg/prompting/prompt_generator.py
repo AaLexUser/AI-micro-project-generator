@@ -98,12 +98,16 @@ class FeedbackPromptGenerator(PromptGenerator):
         project_description: str,
         project_input: str,
         project_output: str,
+        project_autotest: str,
+        execution_result: SandboxResult | None,
     ):
         self.user_solution = user_solution
         self.project_goal = project_goal
         self.project_description = project_description
         self.project_input = project_input
         self.project_output = project_output
+        self.project_autotest = project_autotest
+        self.execution_result = execution_result
         super().__init__()
 
     @property
@@ -111,6 +115,18 @@ class FeedbackPromptGenerator(PromptGenerator):
         return self.load_from_file(Path(PACKAGE_PATH) / "prompting" / "feedback.md")
 
     def generate_prompt(self) -> str:
+        if self.execution_result is None:
+            execution_section = (
+                "stdout:\n\n\nstderr:\n\n\nexit_code: N/A\nis_timed_out: N/A"
+            )
+        else:
+            execution_section = (
+                f"stdout:\n{self.execution_result.stdout}\n\n"
+                f"stderr:\n{self.execution_result.stderr}\n\n"
+                f"exit_code: {self.execution_result.exit_code}\n"
+                f"is_timed_out: {self.execution_result.timed_out}"
+            )
+
         return (
             f"[Код студента]:\n<student_solution>\n{self.user_solution}\n</student_solution>\n\n"
             "--------------------------------\n\n"
@@ -119,6 +135,9 @@ class FeedbackPromptGenerator(PromptGenerator):
             f"[Описание задания]:\n<project_description>\n{self.project_description}\n</project_description>\n"
             f"[Входные данные]:\n<project_input>\n{self.project_input}\n</project_input>\n"
             f"[Ожидаемый результат]:\n<project_output>\n{self.project_output}\n</project_output>\n"
+            f"[Код автотеста]:\n<project_autotest>\n{self.project_autotest}\n</project_autotest>\n"
+            f"[Результат выполнения кода студента]:\n\n"
+            f"{execution_section}"
         )
 
     def create_parser(self):

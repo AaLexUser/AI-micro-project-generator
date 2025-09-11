@@ -9,6 +9,8 @@ export type Project = {
   autotest: string;
 };
 
+export type ProjectStatus = 'in_progress' | 'completed' | 'not_started';
+
 export type GenerateRequest = {
   comments: string[];
   presets?: string | null;
@@ -16,6 +18,14 @@ export type GenerateRequest = {
   overrides?: string[] | null;
 };
 
+export type ExecutionResult = {
+  stdout: string;
+  stderr: string;
+  exit_code: number;
+  timed_out: boolean;
+};
+
 export type FeedbackResponse = {
   feedback: string;
+  execution_result?: ExecutionResult | null;
 };

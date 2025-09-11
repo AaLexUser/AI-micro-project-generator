@@ -106,11 +106,11 @@ export default {
     			}
     		},
     		boxShadow: {
-    			card: '0 1px 3px 0 rgba(14, 165, 233, 0.1), 0 1px 2px 0 rgba(124, 58, 237, 0.06)',
-    			'card-hover': '0 4px 6px -1px rgba(14, 165, 233, 0.15), 0 2px 4px -1px rgba(124, 58, 237, 0.1)',
-    			'card-lg': '0 10px 15px -3px rgba(14, 165, 233, 0.15), 0 4px 6px -2px rgba(124, 58, 237, 0.1)',
-    			glow: '0 0 30px rgba(14, 165, 233, 0.2), 0 0 60px rgba(124, 58, 237, 0.1)',
-    			'primary': '0 4px 14px 0 rgba(14, 165, 233, 0.15)',
+    			card: '0 1px 3px 0 rgba(230, 113, 69, 0.1), 0 1px 2px 0 rgba(230, 113, 69, 0.06)',
+    			'card-hover': '0 4px 6px -1px rgba(230, 113, 69, 0.15), 0 2px 4px -1px rgba(230, 113, 69, 0.1)',
+    			'card-lg': '0 10px 15px -3px rgba(230, 113, 69, 0.15), 0 4px 6px -2px rgba(230, 113, 69, 0.1)',
+    			glow: '0 0 30px rgba(230, 113, 69, 0.2), 0 0 60px rgba(230, 113, 69, 0.1)',
+    			'primary': '0 4px 14px 0 rgba(230, 113, 69, 0.15)',
     			'purple': '0 4px 14px 0 rgba(124, 58, 237, 0.15)',
     			'cyan': '0 4px 14px 0 rgba(6, 182, 212, 0.15)'
     		},

@@ -25,6 +25,7 @@ from aipg.task_inference import (
     TaskInference,
 )
 from aipg.task_inference.task_inference import (
+    CheckUserSolutionSandboxInference,
     ProjectCorrectorInference,
     ProjectValidatorInference,
 )
@@ -47,7 +48,16 @@ class BaseAssistant(Generic[StateT]):
     ) -> StateT:
         for inference_class in task_inferences:
             logger.debug("Running task inference: %s", inference_class.__name__)
-            inference = inference_class(llm=self.llm)
+            # Special handling for inferences that require sandbox_service
+            if hasattr(self, "sandbox_service") and inference_class.__name__ in [
+                "CheckUserSolutionSandboxInference",
+                "CheckAutotestSandboxInference",
+            ]:
+                inference = inference_class(
+                    llm=self.llm, sandbox_service=self.sandbox_service
+                )
+            else:
+                inference = inference_class(llm=self.llm)
             try:
                 state = await inference.transform(state)
             except Exception as e:
@@ -241,8 +251,13 @@ class ProjectAssistant(BaseAssistant[ProjectsAgentState]):
 
 
 class FeedbackAssistant(BaseAssistant[FeedbackAgentState]):
+    def __init__(self, config: AppConfig) -> None:
+        super().__init__(config)
+        self.sandbox_service = build_sandbox_service(config)
+
     async def execute(self, state: FeedbackAgentState) -> FeedbackAgentState:
         task_inferences: List[Type[TaskInference[FeedbackAgentState]]] = [
+            CheckUserSolutionSandboxInference,
             FeedbackInference,
         ]
         return await self._run_task_inference(task_inferences, state)

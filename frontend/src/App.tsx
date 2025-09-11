@@ -13,12 +13,12 @@ function App() {
             <div className="flex items-center justify-between">
               <Link
                 to="/"
-                className="flex items-center gap-3 text-xl font-bold text-gray-900 hover:text-brand-700 transition-colors duration-200"
+                className="flex items-center gap-3 text-xl font-bold text-gray-900 hover:text-primary transition-colors duration-200"
               >
-                <div className="p-2 bg-gradient-to-br from-brand-500 to-brand-600 rounded-xl shadow-lg">
+                <div className="p-2 bg-gradient-to-br from-primary to-primary/90 rounded-xl shadow-lg">
                   <Sparkles className="w-6 h-6 text-white" />
                 </div>
-                <span className="bg-gradient-to-r from-brand-600 to-brand-800 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
                   AI Micro Project Generator
                 </span>
               </Link>
@@ -26,7 +26,7 @@ function App() {
               <nav className="flex items-center gap-6">
                 <Link
                   to="/"
-                  className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-brand-700 transition-colors duration-200"
+                  className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-primary transition-colors duration-200"
                 >
                   <Zap className="w-4 h-4" />
                   Projects
@@ -47,7 +47,7 @@ function App() {
           <div className="mx-auto max-w-7xl px-6 py-8">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Sparkles className="w-4 h-4 text-brand-500" />
+                <Sparkles className="w-4 h-4 text-primary" />
                 <span>Built with FastAPI + React + AI</span>
               </div>
               <div className="text-xs text-gray-500">
