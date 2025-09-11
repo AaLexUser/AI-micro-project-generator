@@ -318,13 +318,14 @@ aipg/
 
 ### 🔄 Assistant Pipeline Architecture
 
-The system consists of two main AI assistants that handle different aspects of the micro-project generation and feedback workflow:
+The system consists of two separate AI assistants that handle different phases of the workflow:
+
+#### 📋 Phase 1: Project Generation (ProjectAssistant)
 
 ```mermaid
 graph TD
     %% Input Layer
     A[User Comments/Issues] --> B[ProjectAssistant]
-    C[User Solution] --> D[FeedbackAssistant]
 
     %% ProjectAssistant Pipeline
     B --> E[DefineTopicsInference]
@@ -359,15 +360,7 @@ graph TD
 
     %% Final Output
     V --> W[Projects Generated]
-
-    %% FeedbackAssistant Pipeline
-    C --> X[User Solution Input]
-    W --> Y[Project Context]
-    X --> Z[CheckUserSolutionSandboxInference]
-    Y --> Z
-    Z --> AA[Execute User Code]
-    AA --> BB[FeedbackInference]
-    BB --> CC[AI-Generated Feedback]
+    W --> X[🏁 ProjectAssistant Ends]
 
     %% Styling
     classDef assistantClass fill:#e1f5fe,stroke:#01579b,stroke-width:2px
@@ -375,17 +368,49 @@ graph TD
     classDef decisionClass fill:#fff3e0,stroke:#e65100,stroke-width:2px
     classDef outputClass fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
     classDef sandboxClass fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef endClass fill:#ffcdd2,stroke:#d32f2f,stroke-width:3px
 
-    class B,D assistantClass
-    class E,H,J,K,N,P,U,Z,BB inferenceClass
+    class B assistantClass
+    class E,H,J,K,N,P,U inferenceClass
     class I,L,O,Q,T decisionClass
-    class W,CC outputClass
-    class AA,S sandboxClass
+    class W outputClass
+    class S sandboxClass
+    class X endClass
+```
+
+#### 🔄 Phase 2: Feedback Generation (FeedbackAssistant)
+
+```mermaid
+graph TD
+    %% Input Layer - New Agent Starts
+    A[🚀 FeedbackAssistant Starts] --> B[User Solution Input]
+    C[Generated Projects] --> D[Project Context Available]
+
+    %% FeedbackAssistant Pipeline
+    B --> E[CheckUserSolutionSandboxInference]
+    D --> E
+    E --> F[Execute User Code]
+    F --> G[FeedbackInference]
+    G --> H[AI-Generated Feedback]
+
+    %% Styling
+    classDef assistantClass fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef inferenceClass fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef outputClass fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef sandboxClass fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef startClass fill:#c8e6c9,stroke:#388e3c,stroke-width:3px
+    classDef contextClass fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+
+    class A startClass
+    class E,G inferenceClass
+    class H outputClass
+    class F sandboxClass
+    class B,C,D contextClass
 ```
 
 #### 🔍 Pipeline Components
 
-**ProjectAssistant Pipeline:**
+**Phase 1 - ProjectAssistant Pipeline:**
 1. **DefineTopicsInference** - Extracts learning topics from user comments
 2. **RAGServiceInference** - Searches existing project database for similar topics
 3. **LLMRankerInference** - Ranks and selects best matching projects
@@ -394,13 +419,17 @@ graph TD
 6. **ProjectCorrectorInference** - Fixes validation issues (up to 3 attempts)
 7. **CheckAutotestSandboxInference** - Tests project autotests in sandbox
 8. **BugFixerInference** - Fixes bugs found during testing
+9. **🏁 Pipeline Ends** - ProjectAssistant completes with generated projects
 
-**FeedbackAssistant Pipeline:**
-1. **CheckUserSolutionSandboxInference** - Executes user code safely in sandbox
-2. **FeedbackInference** - Generates personalized feedback based on execution results
+**Phase 2 - FeedbackAssistant Pipeline:**
+1. **🚀 New Agent Starts** - FeedbackAssistant initializes with project context
+2. **CheckUserSolutionSandboxInference** - Executes user code safely in sandbox
+3. **FeedbackInference** - Generates personalized feedback based on execution results
 
 #### ⚡ Key Features
 
+- **Two-Phase Architecture**: Separate specialized agents for project generation and feedback
+- **Clear Separation**: ProjectAssistant ends after generating projects, FeedbackAssistant starts fresh
 - **Parallel Processing**: Topics are processed concurrently for better performance
 - **Validation Loop**: Projects undergo multiple validation and correction cycles
 - **Bug Detection**: Automated testing and fixing of generated project code
