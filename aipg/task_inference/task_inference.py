@@ -22,6 +22,7 @@ from aipg.prompting.prompt_generator import (
 )
 from aipg.prompting.utils import format_project_validation_result_yaml
 from aipg.rag.service import RagService
+from aipg.sandbox.domain import SandboxResult
 from aipg.sandbox.service import PythonSandboxService
 
 StateT = TypeVar("StateT", bound=BaseModel)
@@ -453,6 +454,15 @@ class CheckAutotestSandboxInference(TaskInference[ProcessTopicAgentState]):
     async def transform(self, state: ProcessTopicAgentState) -> ProcessTopicAgentState:
         self.initialize_task(state)
         if state.project is not None:
+            # Ensure autotest contains the placeholder for student solution
+            if "{STUDENT_SOLUTION}" not in state.project.autotest:
+                state.execution_result = SandboxResult(
+                    stdout="",
+                    stderr="{STUDENT_SOLUTION} должен присутствовать в Автотесте. Проверь его и попробуй снова.",
+                    exit_code=1,
+                    timed_out=False,
+                )
+                return state
             code = state.project.autotest.replace(
                 "{STUDENT_SOLUTION}", state.project.expert_solution
             )

@@ -21,6 +21,12 @@ class LLMConfig(BaseModel):
     temperature: Optional[float] = None
     extra_headers: Dict[str, Any] = Field(default_factory=dict)
     completion_params: Dict[str, Any] = Field(default_factory=dict)
+    # Provider selection and Yandex SDK specific options
+    # provider can be one of: None (default litellm autodetect), "yandex_sdk"
+    provider: Optional[str] = None
+    # Used when provider == "yandex_sdk"
+    yandex_folder_id: Optional[str] = None
+    yandex_model_version: str = "latest"
 
 
 class LangfuseConfig(BaseModel):

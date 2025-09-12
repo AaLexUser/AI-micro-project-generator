@@ -38,7 +38,42 @@ class ChromaDbAdapter(VectorStorePort):
                 from concurrent.futures import ThreadPoolExecutor
 
                 def create_sync_client():
-                    return chromadb.PersistentClient(path=self.persist_dir)
+                    try:
+                        return chromadb.PersistentClient(path=self.persist_dir)
+                    except Exception as e:
+                        logger.error(f"Failed to create ChromaDB client: {e}")
+                        # If the database is corrupted, try to clear it and recreate
+                        if (
+                            "hnsw segment reader" in str(e).lower()
+                            or "nothing found on disk" in str(e).lower()
+                        ):
+                            logger.warning(
+                                "Detected ChromaDB corruption, attempting to clear cache..."
+                            )
+                            import shutil
+                            from pathlib import Path
+
+                            chroma_path = Path(self.persist_dir)
+                            if chroma_path.exists():
+                                # Create backup
+                                backup_path = (
+                                    chroma_path.parent
+                                    / f"{chroma_path.name}_corrupted_backup"
+                                )
+                                if not backup_path.exists():
+                                    shutil.copytree(chroma_path, backup_path)
+                                    logger.info(
+                                        f"Created backup of corrupted cache at: {backup_path}"
+                                    )
+
+                                # Clear the corrupted cache
+                                shutil.rmtree(chroma_path)
+                                chroma_path.mkdir(parents=True, exist_ok=True)
+                                logger.info("Cleared corrupted ChromaDB cache")
+
+                                # Try again with fresh cache
+                                return chromadb.PersistentClient(path=self.persist_dir)
+                        raise
 
                 loop = asyncio.get_running_loop()
                 with ThreadPoolExecutor() as executor:

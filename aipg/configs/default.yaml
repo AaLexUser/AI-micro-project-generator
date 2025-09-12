@@ -5,11 +5,15 @@ llm:
   model_name: ${oc.env:AIPG_LLM_MODEL, openai/gpt-4o}
   base_url: ${oc.env:AIPG_LLM_BASE_URL, null}
   api_key: ${oc.env:AIPG_LLM_API_KEY, null}
+  provider: ${oc.env:AIPG_LLM_PROVIDER, null}
+  # Yandex SDK specific
+  yandex_folder_id: ${oc.env:AIPG_YANDEX_FOLDER_ID, null}
+  yandex_model_version: ${oc.env:AIPG_YANDEX_MODEL_VERSION, latest}
   max_completion_tokens: 500
   temperature: 0.5
   caching:
     enabled: true
-    dir_path: ${oc.env:AIPG_LLM_CACHE_DIR, null}
+    dir_path: ${oc.env:AIPG_LLM_CACHE_DIR, aipg/cache}
   extra_headers:
     X-Title: AIPG
 langfuse:
@@ -20,7 +24,7 @@ rag:
   similarity_threshold: ${oc.env:AIPG_RAG_SIMILARITY_THRESHOLD, 0.7}
   k_candidates: ${oc.env:AIPG_RAG_K_CANDIDATES, 5}
   collection_name: ${oc.env:AIPG_RAG_COLLECTION_NAME, micro_projects}
-  chroma_path: ${oc.env:AIPG_RAG_CHROMA_PATH, null}
+  chroma_path: ${oc.env:AIPG_RAG_CHROMA_PATH, aipg/cache/chroma}
   embedding_model: ${oc.env:AIPG_RAG_EMBEDDING_MODEL, gemini-embedding-001}
   embedding_base_url: ${oc.env:AIPG_RAG_EMBEDDING_BASE_URL, null}
   embedding_api_key: ${oc.env:AIPG_RAG_EMBEDDING_API_KEY, null}
