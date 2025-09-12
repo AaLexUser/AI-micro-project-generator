@@ -70,7 +70,7 @@ class TaskInference(Generic[StateT]):
     def post_process(self, state, value):
         return value
 
-    async def _chat_and_parse_prompt_output(self) -> Dict[str, Optional[str]]:
+    async def _chat_and_parse_prompt_output(self) -> Dict[str, Any]:
         try:
             assert self.prompt_generator is not None, (
                 "prompt_generator is not initialized"

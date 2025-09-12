@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 from typing import Any, Dict, List, TypeVar
 
 import httpx
@@ -11,12 +10,14 @@ from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponen
 
 from aipg.configs.app_config import AppConfig
 from aipg.configs.loader import load_config
+from aipg.tracing import LangfuseTracer
+from yandex_cloud_ml_sdk import YCloudML
 
 try:
-    # Optional dependency: used only when provider == "yandex_sdk"
-    from yandex_cloud_ml_sdk import YCloudML  # type: ignore
-except Exception:  # pragma: no cover - optional import
-    YCloudML = None  # type: ignore
+    from yandex_cloud_ml_sdk._models.completions.function import AsyncCompletions
+except ImportError:
+    AsyncCompletions = None  # type: ignore
+
 T = TypeVar("T", bound=BaseModel)
 
 # litellm._logging._disable_debugging()
@@ -43,16 +44,8 @@ class LLMClient:
                 # For prefixes like openai/, gemini/, keep default litellm path
                 parsed_model_name = self.config.llm.model_name
 
-        if (
-            config.langfuse.public_key
-            and config.langfuse.secret_key
-            and config.langfuse.host
-        ):
-            os.environ.setdefault("LANGFUSE_PUBLIC_KEY", config.langfuse.public_key)
-            os.environ.setdefault("LANGFUSE_SECRET_KEY", config.langfuse.secret_key)
-            os.environ.setdefault("LANGFUSE_HOST", config.langfuse.host)
-            litellm.success_callback = ["langfuse"]
-            litellm.failure_callback = ["langfuse"]
+        # Initialize tracing
+        self._tracer = LangfuseTracer(config)
 
         if not self.config.llm.api_key:
             raise ValueError(
@@ -64,6 +57,10 @@ class LLMClient:
             if YCloudML is None:
                 raise RuntimeError(
                     "yandex-cloud-ml-sdk is not available. Ensure dependency is installed."
+                )
+            if AsyncCompletions is None:
+                raise RuntimeError(
+                    "AsyncCompletions is not available. Ensure yandex-cloud-ml-sdk version supports async completions."
                 )
             if not self.config.llm.yandex_folder_id:
                 raise ValueError(
@@ -77,6 +74,7 @@ class LLMClient:
             self._yandex_model_version = (
                 self.config.llm.yandex_model_version or "latest"
             )
+            # Use AsyncCompletions to create the model
             self._yandex_model = self._yandex_sdk.models.completions(
                 self._yandex_model_id, model_version=self._yandex_model_version
             )
@@ -126,49 +124,65 @@ class LLMClient:
         reraise=True,
     )
     async def query(self, messages: str | List[Dict[str, Any]]) -> str | None:
-        # Normalize to chat message list
-        normalized_messages: List[Dict[str, Any]] = (
-            [{"role": "user", "content": messages}]
-            if isinstance(messages, str)
-            else messages
-        )
+        normalized_messages = self._tracer.normalize_messages(messages)
         logger.debug("Sending messages to LLM: %s", normalized_messages)
-        content: str | None = None
 
         # Yandex SDK path: delegate to deferred API for consistency
         if self._provider == "yandex_sdk":
             return await self.query_deferred(normalized_messages)
 
-        # Default litellm path
-        response = await litellm.acompletion(
-            messages=normalized_messages,
-            **self.completion_params,
+        # Manual Langfuse tracing for litellm path
+        trace, generation = self._tracer.create_litellm_trace(
+            normalized_messages, self.completion_params
         )
-        choices = getattr(response, "choices", []) or []
-        response_content_any: Any | None = (
-            getattr(choices[0].message, "content", None)
-            if choices and getattr(choices[0], "message", None)
-            else None
-        )
-        content = (
-            str(response_content_any) if response_content_any is not None else None
-        )
+
+        try:
+            # Default litellm path
+            response = await litellm.acompletion(
+                messages=normalized_messages,
+                **self.completion_params,
+            )
+            choices = getattr(response, "choices", []) or []
+            response_content_any: Any | None = (
+                getattr(choices[0].message, "content", None)
+                if choices and getattr(choices[0], "message", None)
+                else None
+            )
+            content = (
+                str(response_content_any) if response_content_any is not None else None
+            )
+
+            # Update generation with success details
+            usage_info = self._tracer.extract_litellm_usage(response)
+            response_metadata = {
+                "response_choices_count": len(choices),
+                "model_used": getattr(response, "model", self.config.llm.model_name),
+                "finish_reason": getattr(choices[0], "finish_reason", None)
+                if choices
+                else None,
+            }
+            self._tracer.handle_trace_success(
+                trace, generation, content, usage_info, response_metadata, "litellm"
+            )
+
+        except Exception as e:
+            # Update generation with error details
+            self._tracer.handle_trace_error(trace, generation, e, "litellm")
+            # Re-raise the original exception
+            raise
+
         logger.debug("Received response from LLM: %s", content)
         return content
 
     async def query_deferred(self, messages: str | List[Dict[str, Any]]) -> str | None:
-        """Send an asynchronous request and wait for completion.
+        """Send an asynchronous request using the async run() method.
 
-        For Yandex SDK, this uses run_deferred().wait(). For other providers, falls back to query().
+        For Yandex SDK, this uses the async run() method. For other providers, falls back to query().
         """
         if self._provider != "yandex_sdk":
             return await self.query(messages)
 
-        normalized_messages: List[Dict[str, Any]] = (
-            [{"role": "user", "content": messages}]
-            if isinstance(messages, str)
-            else messages
-        )
+        normalized_messages = self._tracer.normalize_messages(messages)
         y_messages = [
             {
                 "role": m.get("role", "user"),
@@ -177,20 +191,107 @@ class LLMClient:
             for m in normalized_messages
         ]
 
-        loop = asyncio.get_running_loop()
-        operation = await loop.run_in_executor(
-            None, lambda: self._yandex_model.run_deferred(y_messages)
+        # Enhanced Langfuse tracing for Yandex SDK calls
+        trace, generation = self._tracer.create_yandex_trace(
+            y_messages,
+            normalized_messages,
+            self._yandex_model_id,
+            self._yandex_model_version,
         )
-        # Wait for completion on a thread
-        result = await loop.run_in_executor(None, operation.wait)  # type: ignore
+
         try:
-            content = "".join(str(alt) for alt in result)  # type: ignore
-        except Exception:
-            content = str(result)
+            # Use the async run() method directly
+            # Check if the model's run method is actually async or sync
+            if hasattr(
+                self._yandex_model.run, "__call__"
+            ) and asyncio.iscoroutinefunction(self._yandex_model.run):
+                result = await self._yandex_model.run(y_messages, timeout=180)
+            else:
+                # Fall back to running in executor if it's synchronous
+                loop = asyncio.get_running_loop()
+                result = await loop.run_in_executor(
+                    None, lambda: self._yandex_model.run(y_messages, timeout=180)
+                )
+
+            # Handle GPTModelResult properly
+            content = self._extract_content_from_result(result)
+
+            # Update generation with success details
+            usage_info = self._tracer.extract_yandex_usage(result)
+            response_metadata = {
+                "result_type": type(result).__name__,
+                "alternatives_count": len(getattr(result, "alternatives", [])),
+                "model_used": self._yandex_model_id,
+                "model_version": self._yandex_model_version,
+            }
+            self._tracer.handle_trace_success(
+                trace, generation, content, usage_info, response_metadata, "yandex_sdk"
+            )
+
+        except Exception as e:
+            # Update generation with error details
+            additional_metadata = {
+                "model_id": self._yandex_model_id,
+                "model_version": self._yandex_model_version,
+            }
+            self._tracer.handle_trace_error(
+                trace, generation, e, "yandex_sdk", additional_metadata
+            )
+            # Re-raise the original exception
+            raise
+
         return content
+
+    def _extract_content_from_result(self, result) -> str | None:
+        """Extract text content from GPTModelResult.
+
+        Args:
+            result: GPTModelResult object from Yandex SDK
+
+        Returns:
+            Extracted text content from first alternative or None if no content available
+        """
+        try:
+            # Handle GPTModelResult with alternatives - return first alternative only
+            if hasattr(result, "alternatives") and result.alternatives:
+                first_alternative = result.alternatives[0]
+                if hasattr(first_alternative, "text") and first_alternative.text:
+                    return first_alternative.text
+                return None
+
+            # Fallback: try to access text property directly
+            if hasattr(result, "text"):
+                return result.text
+
+            # Last resort: convert to string
+            return str(result) if result is not None else None
+
+        except Exception:
+            # If all else fails, convert to string
+            return str(result) if result is not None else None
+
+    def flush_traces(self) -> None:
+        """Flush all pending Langfuse traces to the server.
+
+        This method should be called before application shutdown to ensure
+        all traces are sent to Langfuse.
+        """
+        self._tracer.flush_traces()
+
+    def shutdown(self) -> None:
+        """Gracefully shutdown the Langfuse client.
+
+        This method should be called before application shutdown to ensure
+        all traces are sent and resources are properly cleaned up.
+        """
+        self._tracer.shutdown()
 
 
 if __name__ == "__main__":
     config = load_config(schema=AppConfig)
     llm = LLMClient(config)
-    print(asyncio.run(llm.query("Hello, how are you?")))
+    try:
+        print(asyncio.run(llm.query("Hello, how are you?")))
+    finally:
+        # Ensure traces are flushed before exit
+        llm.flush_traces()

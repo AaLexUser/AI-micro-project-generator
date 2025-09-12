@@ -28,7 +28,6 @@ def build_sandbox_service(config: AppConfig) -> PythonSandboxService:
             default_timeout_seconds=config.sandbox.default_timeout_seconds,
         )
     else:
-        # Fall back to DockerPythonRunner for standalone usage
         runner = DockerPythonRunner(config=config.sandbox)
 
     return PythonSandboxService(

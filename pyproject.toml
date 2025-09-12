@@ -60,3 +60,16 @@ markers = [
     "unit: marks tests as unit tests",
     "integration: marks tests as integration tests",
 ]
+
+# Ignore missing imports for libraries without type stubs
+[[tool.mypy.overrides]]
+module = "langfuse.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "yandex_cloud_ml_sdk.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "aipg.tracing.*"
+disable_error_code = ["union-attr"]
